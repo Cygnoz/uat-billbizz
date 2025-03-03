@@ -5,7 +5,7 @@ const Settings = require("../database/model/settings");
 const BMCR = require("../database/model/bmcr");
 const Tax = require("../database/model/tax");
 const Account = require("../database/model/account")
-
+const moment = require("moment-timezone");
 
 const { cleanData } = require("../services/cleanData");
 const Supplier = require("../database/model/supplier");
@@ -248,7 +248,10 @@ exports.addItem = async (req, res) => {
 
       const savedItem = await newItem.save();
 
-      
+      const openingStockDate = moment.tz(settingsExist.openingStockDate, organizationExists.timeZoneExp).startOf("day"); 
+
+      const closingStockDate = openingStockDate.clone().subtract(1, "day").toISOString();      
+
       const trackEntry = new ItemTrack({
         organizationId,
         operationId: savedItem._id,
@@ -257,6 +260,7 @@ exports.addItem = async (req, res) => {
         sellingPrice:savedItem.sellingPrice || 0 ,
         costPrice:savedItem.costPrice || 0 ,
         debitQuantity: openingStock || 0 ,
+        createdDateTime:closingStockDate,
       });  
       await trackEntry.save();
       console.log( "Item Track Added", trackEntry );      
