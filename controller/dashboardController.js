@@ -2,10 +2,11 @@
 const Item = require('../database/model/item');
 const BMCR = require('../database/model/bmcr');
 const ItemTrack = require('../database/model/itemTrack');
+const { getAllItemXS } = require('../controller/itemController')  //getAllItemXS.currentStock
 const moment = require("moment-timezone");
 
 exports.calculateTotalInventoryValue = async (req, res) => {
-  try {
+  try {    
     const organizationId = req.user.organizationId;
     
     // Get the start and end of the current month
@@ -15,10 +16,17 @@ exports.calculateTotalInventoryValue = async (req, res) => {
     const topSellingCategories = await getTopSellingProductCategory(organizationId);
 
     
-    // Fetch all items for the given organizationId
-    const items = await Item.find({ organizationId });
+    // // Fetch all items for the given organizationId
+    // const items = await Item.find({ organizationId });
 
-    if (items.length === 0) {
+    // if (items.length === 0) {
+    //   return res.status(404).json({ message: "No items found for the organization" });
+    // }
+
+    // Fetch enriched items from getAllItemXS
+    const { enrichedItems } = await getAllItemXS({ user: { organizationId } }, { status: () => ({ json: () => {} }) });
+
+    if (!enrichedItems || enrichedItems.length === 0) {
       return res.status(404).json({ message: "No items found for the organization" });
     }
 
@@ -28,18 +36,30 @@ exports.calculateTotalInventoryValue = async (req, res) => {
     let recentlyAddedItems = [];
 
     // Loop through each item and calculate stock from the latest itemTrack entry
-    for (const item of items) {
-      // Find the last (most recent) entry for this item in ItemTrack
-      const latestTrack = await ItemTrack.findOne({
-        itemId: item._id,
-        organizationId: organizationId,
-      }).sort({ _id: -1 }); // Sort by _id to get the latest document (or use createdAt if preferred)
+    for (const item of enrichedItems) {
+      // Fetch stock details from getAllItemXS
+     const allItemStocks = await getAllItemXS(organizationId);
+     console.log("getAllItemXS",allItemStocks);
 
-      let totalStock = 0;
 
-      if (latestTrack) {
-        totalStock = latestTrack.currentStock; // Use the currentStock from the latest track
-      }
+      // Find the stock details for this item
+      // const stockData = allItemStocks.find(stock => stock._id.equals(item._id));
+      const stockData = allItemStocks.currentStock || 0;
+      let totalStock = 0
+      totalStock = totalStock + stockData; // Use fetched stock, fallback to 0
+
+
+      // // Find the last (most recent) entry for this item in ItemTrack
+      // const latestTrack = await ItemTrack.findOne({
+      //   itemId: item._id,
+      //   organizationId: organizationId,
+      // }).sort({ _id: -1 }); // Sort by _id to get the latest document (or use createdAt if preferred)
+
+      // let totalStock = 0;
+
+      // if (latestTrack) {
+      //   totalStock = latestTrack.currentStock; // Use the currentStock from the latest track
+      // }
 
       // Handle missing costPrice by setting it to 0 if not provided
       const costPrice = item.costPrice || 0;

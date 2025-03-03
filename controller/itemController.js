@@ -877,3 +877,7 @@ function isAlphanumeric(value) {
 const validItemTypes = [ "goods", "service" ];
 const validTaxPreference = [ "Non-taxable", "Taxable" ]; 
 const validType = [ "Fabric", "Raw Material", "Ready Made" ];   //sewnex variable
+
+
+
+
