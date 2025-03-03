@@ -114,7 +114,6 @@ exports.updateCreditNote = async (req, res) => {
       //Update Invoice Balance      
       await editUpdateSalesInvoiceBalance( savedCreditNote, invoiceId, existingCreditNote.totalAmount ); 
       
-  
       res.status(200).json({ message: "Credit note updated successfully", savedCreditNote });
       console.log("Credit Note updated successfully:", savedCreditNote);  
     } catch (error) {
