@@ -58,6 +58,7 @@ exports.updateCreditNote = async (req, res) => {
       if (!validation.validateOrganizationTaxCurrency( organizationExists, customerExist, invoiceExist, res )) return;
 
       const { itemTable } = await dataExist.itemDataExists( organizationId, items );
+      
 
       const validationData = {cleanedData, customerExist, invoiceExist, items, itemTable, organizationExists, existingCreditNoteItems};
 
