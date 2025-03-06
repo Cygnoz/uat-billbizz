@@ -10,11 +10,10 @@ const mongoose = require('mongoose');
 const DefAcc  = require("../../database/model/defaultAccount");
 const Account = require("../../database/model/account");
 const TrialBalance = require("../../database/model/trialBalance");
-
+const SupplierHistory = require("../../database/model/supplierHistory");
 
 const { cleanData } = require("../../services/cleanData");
 const { singleCustomDateTime, multiCustomDateTime } = require("../../services/timeConverter");
-
 
 const { ObjectId } = require('mongodb');
 const moment = require("moment-timezone");
@@ -185,6 +184,19 @@ exports.addDebitNote = async (req, res) => {
 
     const savedDebitNote = await createNewDebitNote(cleanedData, organizationId, userId, userName );
 
+    // Add entry to Supplier History
+    const supplierHistoryEntry = new SupplierHistory({
+      organizationId,
+      operationId: savedDebitNote._id,
+      supplierId,
+      title: "Debit Note Added",
+      description: `Debit Note ${savedDebitNote.debitNote} of amount ${savedDebitNote.grandTotal} created by ${userName}`,  
+      userId: userId,
+      userName: userName,
+    });
+
+    await supplierHistoryEntry.save();
+
     //Journal
     await journal( savedDebitNote, defAcc, supplierAccount, depositAccount );
 
@@ -193,6 +205,9 @@ exports.addDebitNote = async (req, res) => {
 
     // Update Purchase Bill
     await updateBillWithDebitNote(billId, items);
+
+    //Update Bill Balance
+    await updateBillBalance( savedDebitNote, billId ); 
 
     // Calculate stock 
     await calculateStock(savedDebitNote);
@@ -399,7 +414,23 @@ function taxType( cleanedData, supplierExist ) {
 
 
 
-
+// Function to update purchase bill balance
+const updateBillBalance = async (savedDebitNote, billId) => {
+  try {
+    const { grandTotal } = savedDebitNote;
+    const bill = await Bills.findOne({ _id: billId });
+    let newBalance = bill.balanceAmount - grandTotal; 
+    if (newBalance < 0) {
+      newBalance = 0;
+    }
+    console.log(`Updating purchase bill balance: ${newBalance}, Total Amount: ${grandTotal}, Old Balance: ${bill.balanceAmount}`);
+    
+    await Bills.findOneAndUpdate({ _id: billId }, { $set: { balanceAmount: newBalance } });
+  } catch (error) {
+    console.error("Error updating purchase bill balance:", error);
+    throw new Error("Failed to update purchase bill balance.");
+  }
+};
 
 
 

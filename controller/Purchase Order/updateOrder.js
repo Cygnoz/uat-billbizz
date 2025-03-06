@@ -2,6 +2,8 @@
 const mongoose = require('mongoose');
 const PurchaseOrder = require('../../database/model/purchaseOrder');
 const Bills = require('../../database/model/bills');
+const SupplierHistory = require("../../database/model/supplierHistory");
+
 const { dataExist, purchaseOrder, validation, calculations } = require("../Purchase Order/purchaseOrderController");
 const { cleanData } = require("../../services/cleanData");
 
@@ -81,6 +83,19 @@ exports.updatePurchaseOrder = async (req, res) => {
           console.error("Failed to save updated purchase order.");
           return res.status(500).json({ message: "Failed to update purchase order" });
       }
+
+      // Add entry to Supplier History
+      const supplierHistoryEntry = new SupplierHistory({
+        organizationId,
+        operationId: savedPurchaseOrder._id,
+        supplierId,
+        title: "Purchase Order Updated",
+        description: `Purchase Order ${savedPurchaseOrder.purchaseOrder} updated by ${userName}`,  
+        userId: userId,
+        userName: userName,
+      });
+  
+      await supplierHistoryEntry.save();
   
       res.status(200).json({ message: "Purchase order updated successfully", savedPurchaseOrder });
       console.log("Purchase order updated successfully:", savedPurchaseOrder);
@@ -103,7 +118,7 @@ exports.deletePurchaseOrder = async (req, res) => {
   console.log("Delete purchase order request received:", req.params);
 
   try {
-      const { organizationId } = req.user;
+      const { organizationId, id: userId, userName } = req.user;
       const { orderId } = req.params;
 
       // Validate orderId
@@ -118,12 +133,25 @@ exports.deletePurchaseOrder = async (req, res) => {
           return res.status(404).json({ message: "Purchase order not found" });
       }
 
+      // Add entry to Supplier History
+      const supplierHistoryEntry = new SupplierHistory({
+        organizationId,
+        operationId: existingPurchaseOrder._id,
+        supplierId: existingPurchaseOrder.supplierId,
+        title: "Purchase Order Deleted",
+        description: `Purchase Order ${existingPurchaseOrder.purchaseOrder} deleted by ${userName}`,  
+        userId: userId,
+        userName: userName,
+      });
+
       // Delete the purchase order
       const deletedPurchaseOrder = await existingPurchaseOrder.deleteOne();
       if (!deletedPurchaseOrder) {
           console.error("Failed to delete purchase order.");
           return res.status(500).json({ message: "Failed to delete purchase order" });
       }
+  
+      await supplierHistoryEntry.save();
 
       res.status(200).json({ message: "Purchase order deleted successfully" });
       console.log("Purchase order deleted successfully with ID:", orderId);

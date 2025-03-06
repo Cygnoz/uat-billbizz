@@ -10,6 +10,7 @@ const Prefix = require("../../database/model/prefix");
 const DefAcc  = require("../../database/model/defaultAccount");
 const TrialBalance = require("../../database/model/trialBalance");
 const Account = require("../../database/model/account");
+const SupplierHistory = require("../../database/model/supplierHistory");
 
 const { cleanData } = require("../../services/cleanData");
 const { singleCustomDateTime, multiCustomDateTime } = require("../../services/timeConverter");
@@ -194,6 +195,19 @@ exports.addBills = async (req, res) => {
       cleanedData.createdDateTime = moment.tz(cleanedData.billDate, "YYYY-MM-DDTHH:mm:ss.SSS[Z]", organizationExists.timeZoneExp).toISOString();           
   
       const savedBills = await createNewBills(cleanedData, organizationId, userId, userName );
+
+      // Add entry to Supplier History
+      const supplierHistoryEntry = new SupplierHistory({
+        organizationId,
+        operationId: savedBills._id,
+        supplierId,
+        title: "Purchase Bill Added",
+        description: `Purchase Bill ${savedBills.billNumber} of amount ${savedBills.grandTotal} created by ${userName}`,  
+        userId: userId,
+        userName: userName,
+      });
+  
+      await supplierHistoryEntry.save();
   
       //Journal      
       await journal( savedBills, defAcc, supplierAccount );

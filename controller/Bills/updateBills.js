@@ -6,6 +6,7 @@ const TrialBalance = require("../../database/model/trialBalance");
 const ItemTrack = require("../../database/model/itemTrack");
 const { dataExist, validation, calculation, accounts } = require("../Bills/billsController");
 const { cleanData } = require("../../services/cleanData");
+const SupplierHistory = require("../../database/model/supplierHistory");
 
 const { ObjectId } = require('mongodb');
 const moment = require("moment-timezone");
@@ -15,7 +16,7 @@ exports.updateBill = async (req, res) => {
     console.log("Update bill:", req.body);
   
     try {
-      const { organizationId } = req.user;
+      const { organizationId, id: userId, userName } = req.user;
       const { billId } = req.params;   
       
       // Check if the billId exists in PaymentMade schema
@@ -110,10 +111,22 @@ exports.updateBill = async (req, res) => {
       const mongooseDocument = Bills.hydrate(existingBill);
       Object.assign(mongooseDocument, cleanedData);
       const savedBill = await mongooseDocument.save();
-
       if (!savedBill) {
         return res.status(500).json({ message: "Failed to update bill" });
       }
+
+      // Add entry to Supplier History
+      const supplierHistoryEntry = new SupplierHistory({
+        organizationId,
+        operationId: savedBill._id,
+        supplierId,
+        title: "Purchase Bill Updated",
+        description: `Purchase Bill ${savedBill.billNumber} updated by ${userName}`,  
+        userId: userId,
+        userName: userName,
+      });
+  
+      await supplierHistoryEntry.save();
 
       //Journal
       await journal( savedBill, defAcc, supplierAccount );
@@ -139,7 +152,7 @@ exports.updateBill = async (req, res) => {
     console.log("Delete purchase bill request received:", req.params);
 
     try {
-        const { organizationId } = req.user;
+        const { organizationId, id: userId, userName } = req.user;
         const { billId } = req.params;
 
         // Validate billId
@@ -188,12 +201,25 @@ exports.updateBill = async (req, res) => {
           console.log(`Deleted existing TrialBalance entries for operationId: ${existingPurchaseBill._id}`);
         }
 
+        // Add entry to Supplier History
+        const supplierHistoryEntry = new SupplierHistory({
+          organizationId,
+          operationId: existingPurchaseBill._id,
+          supplierId: existingPurchaseBill.supplierId,
+          title: "Purchase Bill Deleted",
+          description: `Purchase Bill ${existingPurchaseBill.billNumber} deleted by ${userName}`,  
+          userId: userId,
+          userName: userName,
+        });
+
         // Delete the purchase bill
         const deletedPurchaseBill = await existingPurchaseBill.deleteOne();
         if (!deletedPurchaseBill) {
             console.error("Failed to delete purchase bill.");
             return res.status(500).json({ message: "Failed to delete purchase bill" });
         }
+    
+        await supplierHistoryEntry.save();
 
         res.status(200).json({ message: "Purchase bill deleted successfully" });
         console.log("Purchase bill deleted successfully with ID:", billId);

@@ -9,7 +9,7 @@ const Tax = require('../../database/model/tax');
 const Prefix = require("../../database/model/prefix");
 const moment = require("moment-timezone");
 const mongoose = require('mongoose');
-
+const SupplierHistory = require("../../database/model/supplierHistory");
 
 const { cleanData } = require("../../services/cleanData");
 const { singleCustomDateTime, multiCustomDateTime } = require("../../services/timeConverter");
@@ -98,6 +98,19 @@ exports.addPurchaseOrder = async (req, res) => {
       await purchaseOrderPrefix(cleanedData, existingPrefix );
   
       const savedPurchaseOrder = await createNewPurchaseOrder(cleanedData, organizationId, userId, userName );
+
+      // Add entry to Supplier History
+      const supplierHistoryEntry = new SupplierHistory({
+        organizationId,
+        operationId: savedPurchaseOrder._id,
+        supplierId,
+        title: "Purchase Order Added",
+        description: `Purchase Order ${savedPurchaseOrder.purchaseOrder} of amount ${savedPurchaseOrder.grandTotal} created by ${userName}`,  
+        userId: userId,
+        userName: userName,
+      });
+  
+      await supplierHistoryEntry.save();
         
       res.status(201).json({ message: "Purchase order created successfully", savedPurchaseOrder });
       console.log( "Purchase order created successfully:", savedPurchaseOrder );

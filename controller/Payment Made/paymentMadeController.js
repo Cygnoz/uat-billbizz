@@ -8,6 +8,7 @@ const Account = require("../../database/model/account");
 const TrialBalance = require("../../database/model/trialBalance");
 const { cleanData } = require("../../services/cleanData");
 const { singleCustomDateTime, multiCustomDateTime } = require("../../services/timeConverter");
+const SupplierHistory = require("../../database/model/supplierHistory");
 
 const moment = require("moment-timezone");
 
@@ -131,6 +132,19 @@ exports.addPayment = async (req, res) => {
 
     // Create and save new payment
     const payment = await createNewPayment(updatedData, organizationId, userId, userName);
+
+    // Add entry to Supplier History
+    const supplierHistoryEntry = new SupplierHistory({
+      organizationId,
+      operationId: payment._id,
+      supplierId,
+      title: "Payment Made Added",
+      description: `Payment Made ${payment.paymentMade} of amount ${payment.total} created by ${userName}`,  
+      userId: userId,
+      userName: userName,
+    });
+
+    await supplierHistoryEntry.save();
 
     //Journal
     await journal( payment, paidThroughAccount, supplierAccount );

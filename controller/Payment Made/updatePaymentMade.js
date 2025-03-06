@@ -4,7 +4,7 @@ const TrialBalance = require("../../database/model/trialBalance");
 const Bill = require("../../database/model/bills");
 const { dataExist, validation, calculation, accounts } = require("../Payment Made/paymentMadeController");
 const { cleanData } = require("../../services/cleanData");
-
+const SupplierHistory = require("../../database/model/supplierHistory");
 
 const moment = require("moment-timezone");
 
@@ -15,14 +15,13 @@ exports.updatePaymentMade = async (req, res) => {
     console.log("Update payment made:", req.body);
   
     try {
-      const { organizationId } = req.user;
+      const { organizationId, id: userId, userName } = req.user;
       const { paymentId } = req.params;  
 
       // Fetch existing sales receipt
       const existingPaymentMade = await getExistingPaymentMade(paymentId, organizationId, res);
       // console.log("existingPaymentMade",existingPaymentMade);
       
-
       // Extract paymentAmount values
       const existingPaymentMadeBills = existingPaymentMade.unpaidBills;
 
@@ -87,6 +86,19 @@ exports.updatePaymentMade = async (req, res) => {
         return res.status(500).json({ message: "Failed to update payment made" });
       }
 
+      // Add entry to Supplier History
+      const supplierHistoryEntry = new SupplierHistory({
+        organizationId,
+        operationId: savedPaymentMade._id,
+        supplierId,
+        title: "Payment Made Updated",
+        description: `Payment Made ${savedPaymentMade.paymentMade} updated by ${userName}`,  
+        userId: userId,
+        userName: userName,
+      });
+
+      await supplierHistoryEntry.save();
+
       //Journal
       await journal( savedPaymentMade, paidThroughAccount, supplierAccount );
       
@@ -107,7 +119,7 @@ exports.deletePaymentMade = async (req, res) => {
   console.log("Delete payment made request received:", req.params);
 
   try {
-      const { organizationId } = req.user;
+      const { organizationId, id: userId, userName } = req.user;
       const { paymentId } = req.params;
 
       // Validate paymentId
@@ -144,12 +156,25 @@ exports.deletePaymentMade = async (req, res) => {
       // Extract payment made bills
       const existingPaymentMadeBills = existingPaymentMade.unpaidBills;
 
+      // Add entry to Supplier History
+      const supplierHistoryEntry = new SupplierHistory({
+        organizationId,
+        operationId: existingPaymentMade._id,
+        supplierId,
+        title: "Payment Made Deleted",
+        description: `Payment Made ${existingPaymentMade.paymentMade} deleted by ${userName}`,  
+        userId: userId,
+        userName: userName,
+      });
+
       // Delete the payment made
       const deletedPaymentMade = await existingPaymentMade.deleteOne();
       if (!deletedPaymentMade) {
           console.error("Failed to delete payment made.");
           return res.status(500).json({ message: "Failed to delete payment made!" });
       }
+
+      await supplierHistoryEntry.save();
 
       // Fetch existing TrialBalance's createdDateTime
       const existingTrialBalance = await TrialBalance.findOne({ 
