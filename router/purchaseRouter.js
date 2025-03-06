@@ -17,7 +17,6 @@ const billsController = require('../controller/Bills/billsController')
 const updateBills = require('../controller/Bills/updateBills')
 
 const SupplierController = require('../controller/supplierController')
- 
 
 const checkPermission = require('../controller/permission')
 const { verifyToken } = require('../controller/middleware');
