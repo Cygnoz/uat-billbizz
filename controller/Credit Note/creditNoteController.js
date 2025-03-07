@@ -133,7 +133,7 @@ exports.addCreditNote = async (req, res) => {
 
     //Validate Customer
     if (!mongoose.Types.ObjectId.isValid(customerId) || customerId.length !== 24) {
-      return res.status(400).json({ message: `Invalid supplier ID: ${customerId}` });
+      return res.status(400).json({ message: `Invalid customer ID: ${customerId}` });
     }
 
     //Validate invoice
