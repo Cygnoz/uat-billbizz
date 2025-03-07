@@ -3,14 +3,20 @@ const SalesInvoice = require("../database/model/salesInvoice");
 const Organization = require("../database/model/organization");
 const Item = require("../database/model/item");
 const ItemTrack = require("../database/model/itemTrack");
+const TrialBalance = require("../database/model/trialBalance");
 const Expense = require('../database/model/expense');
+const Account = require('../database/model/account');
+
 const moment = require("moment-timezone");
 const mongoose = require('mongoose');
+
+const { singleCustomDateTime, multiCustomDateTime } = require("../services/timeConverter");
+
 
 
 const dataExist = async ( organizationId ) => {    
     const [organizationExists, allInvoice, allCustomer, allItem, allExpense ] = await Promise.all([
-      Organization.findOne({ organizationId },{ timeZoneExp: 1, dateFormatExp: 1, dateSplit: 1, organizationCountry: 1, createdDateTime: 1 })
+      Organization.findOne({ organizationId },{ timeZoneExp: 1, dateFormatExp: 1, dateSplit: 1, organizationCountry: 1 })
       .lean(),
       SalesInvoice.find({ organizationId }, {_id: 1, customerId: 1, items: 1, paidStatus: 1, paidAmount: 1, totalAmount: 1, createdDateTime: 1 })
       .populate('items.itemId', 'itemName') 
@@ -157,19 +163,32 @@ exports.getOverviewData = async (req, res) => {
             return invoiceDate.isBetween(startDate, endDate, null, "[]");
         });
 
-        console.log("Filtered Invoices:", filteredInvoices);
+        // console.log("Filtered Invoices:", filteredInvoices);
 
         // Total Revenue: Sum of paidAmount where paidStatus is "Completed"
-        const totalRevenue = filteredInvoices
-            .filter(inv => inv.paidStatus === "Completed")
-            .reduce((sum, inv) => sum + (parseFloat(inv.paidAmount) || 0), 0);
+        // const totalRevenue = filteredInvoices
+        //     .filter(inv => inv.paidStatus === "Completed")
+        //     .reduce((sum, inv) => sum + (parseFloat(inv.paidAmount) || 0), 0);
+
+        const start = startDate.toISOString();
+        const end = endDate.toISOString();
+
+        console.log("start and end",start,end)
+
+        const sales = await getReportAccount( organizationExists, organizationId, start, end,'Sales'); 
+        const indirectIncome = await getReportAccount( organizationExists, organizationId, start, end,'Indirect Income');   
+
+        console.log("sales and indirectIncome",sales,indirectIncome)
+
+        const totalRevenue = sales.overallNetCredit + indirectIncome.overallNetCredit;  
+
 
         // Total Inventory Value: Sum of (currentStock * costPrice)
         const filteredItems = enrichedItems.filter(item =>
             moment.tz(item.createdDateTime, orgTimeZone).isBetween(startDate, endDate, null, "[]")
         );
 
-        console.log("Filtered Items:", filteredItems);
+        // console.log("Filtered Items:", filteredItems);
 
         const totalInventoryValue = filteredItems.reduce(
             (sum, item) => sum + ((parseFloat(item.currentStock) || 0) * (parseFloat(item.costPrice) || 0)), 
@@ -181,7 +200,7 @@ exports.getOverviewData = async (req, res) => {
             moment.tz(exp.createdDateTime, orgTimeZone).isBetween(startDate, endDate, null, "[]")
         );
 
-        console.log("Filtered Expenses:", filteredExpenses);
+        // console.log("Filtered Expenses:", filteredExpenses);
 
         const totalExpenses = filteredExpenses.reduce(
             (sum, exp) => sum + (parseFloat(exp.grandTotal) || 0), 
@@ -219,7 +238,7 @@ exports.getOverviewData = async (req, res) => {
 
 
 
-// Sales Over Time
+// // Sales Over Time
 exports.getSalesOverTime = async (req, res) => {
     try {
         const organizationId = req.user.organizationId;
@@ -247,32 +266,48 @@ exports.getSalesOverTime = async (req, res) => {
 
         console.log("Requested Date Range:", startDate.format(), endDate.format());
 
+        // Initialize an object to store sales per day
+        let dailySales = {};
+
+        // Loop through the days of the month
+        let currentDate = startDate.clone();
+        while (currentDate.isBefore(endDate) || currentDate.isSame(endDate, "day")) {
+            dailySales[currentDate.format("YYYY-MM-DD")] = 0;
+            currentDate.add(1, "day");
+        }
+
         // Filter invoices within the date range (using organization time zone)
-        const filteredInvoices = allInvoice.filter(inv => {
-            const invoiceDate = moment.tz(inv.createdDateTime, orgTimeZone);
-            return invoiceDate.isBetween(startDate, endDate, null, "[]");
+        allInvoice.forEach(inv => {
+            const invoiceDate = moment.tz(inv.createdDateTime, orgTimeZone).format("YYYY-MM-DD");
+            if (dailySales[invoiceDate] !== undefined) {
+                dailySales[invoiceDate] += parseFloat(inv.totalAmount) || 0;
+            }
         });
 
-        console.log("Filtered Invoices:", filteredInvoices);
+        console.log("Daily Sales Breakdown:", dailySales);
+
+        // Convert daily sales object to an array for better response format
+        const dailySalesArray = Object.keys(dailySales).map(date => ({
+            date,
+            totalSales: dailySales[date]
+        }));
 
         // Total Sales: Sum of totalAmount from sales invoices filtered for the selected range
-        const totalSales = filteredInvoices.reduce(
-            (sum, inv) => sum + (parseFloat(inv.totalAmount) || 0), 
-            0
-        );
-
-        console.log("Final Calculations:", { totalSales });
+        const totalSales = dailySalesArray.reduce((sum, day) => sum + day.totalSales, 0);
 
         // Response JSON
         res.json({
             totalSales,
+            dailySales: dailySalesArray
         });
 
     } catch (error) {
         console.error("Error fetching sales over time data:", error);
         res.status(500).json({ message: "Internal server error." });
     }
-}
+};
+
+
 
 
 
@@ -470,4 +505,247 @@ exports.getTopProductCustomer = async (req, res) => {
 
 
 
-   
+// Report for single subhead
+async function getReportAccount(organizationExists,organizationId, startDate, endDate, accountSubHead) {
+    try {
+        const openingBalances = await TrialBalance.aggregate([
+            {
+                $match: {
+                    organizationId: organizationId,
+                    createdDateTime: { $lt: startDate }
+                }
+            },
+            {
+                $lookup: {
+                    from: "accounts",
+                    localField: "accountId",
+                    foreignField: "_id",
+                    as: "accountDetails"
+                }
+            },
+            { $unwind: "$accountDetails" },
+            { $match: { "accountDetails.accountSubhead": accountSubHead } },
+            {
+                $group: {
+                    _id: "$accountId",
+                    accountName: { $first: "$accountDetails.accountName" },
+                    totalDebit: { $sum: "$debitAmount" },
+                    totalCredit: { $sum: "$creditAmount" }
+                }
+            },
+            {
+                $set: {
+                    totalDebit: {
+                        $cond: {
+                            if: { $gt: ["$totalDebit", "$totalCredit"] },
+                            then: { $subtract: ["$totalDebit", "$totalCredit"] },
+                            else: 0
+                        }
+                    },
+                    totalCredit: {
+                        $cond: {
+                            if: { $gt: ["$totalCredit", "$totalDebit"] },
+                            then: { $subtract: ["$totalCredit", "$totalDebit"] },
+                            else: 0
+                        }
+                    }
+                }
+            }
+        ]);
+        
+
+        const transactions = await TrialBalance.aggregate([
+            {
+                $match: {
+                    organizationId: organizationId,
+                    createdDateTime: { $gte: startDate, $lte: endDate }
+                }
+            },
+            {
+                $lookup: {
+                    from: "accounts",
+                    localField: "accountId",
+                    foreignField: "_id",
+                    as: "accountDetails"
+                }
+            },
+            { $unwind: "$accountDetails" },
+            { $match: { "accountDetails.accountSubhead": accountSubHead } },
+            {
+                $match: {
+                    $or: [{ debitAmount: { $ne: 0 } }, { creditAmount: { $ne: 0 } }]
+                }
+            },
+            {
+                $project: {
+                    accountId: 1,
+                    accountName: "$accountDetails.accountName",
+                    transactionId: 1,
+                    operationId: 1,
+                    date: "$createdDateTime",
+                    debitAmount: 1,
+                    creditAmount: 1
+                }
+            },
+            {
+                $addFields: {
+                    month: {
+                        $dateToString: {
+                            format: "%B %Y",
+                            date: "$date"
+                        }
+                    }
+                }
+            },
+            {
+                $group: {
+                    _id: { accountId: "$accountId", accountName: "$accountName", month: "$month" },
+                    transactions: {
+                        $push: {
+                            transactionId: "$transactionId",
+                            operationId: "$operationId",
+                            createdDateTime: "$date",
+                            createdDate: null,
+                            createdTime:null,
+                            debitAmount: "$debitAmount",
+                            creditAmount: "$creditAmount"
+                        }
+                    },
+                    totalDebit: { $sum: "$debitAmount" },
+                    totalCredit: { $sum: "$creditAmount" }
+                }
+            },
+            {
+                $set: {
+                    totalDebit: {
+                        $cond: {
+                            if: { $gt: ["$totalDebit", "$totalCredit"] },
+                            then: { $subtract: ["$totalDebit", "$totalCredit"] },
+                            else: 0
+                        }
+                    },
+                    totalCredit: {
+                        $cond: {
+                            if: { $gt: ["$totalCredit", "$totalDebit"] },
+                            then: { $subtract: ["$totalCredit", "$totalDebit"] },
+                            else: 0
+                        }
+                    }
+                }
+            },
+            {
+                $group: {
+                    _id: "$_id.accountId",
+                    accountName: { $first: "$_id.accountName" },
+                    overallNetDebit: { $sum: "$totalDebit" },
+                    overallNetCredit: { $sum: "$totalCredit" },
+                    entries: {
+                        $push: {
+                            date: "$_id.month",
+                            transactions: "$transactions",
+                            overAllNetDebit: "$totalDebit",
+                            overAllNetCredit: "$totalCredit"
+                        }
+                    }
+                }
+            },
+            {
+                $set: {
+                    overallNetDebit: {
+                        $cond: {
+                            if: { $gt: ["$overallNetDebit", "$overallNetCredit"] },
+                            then: { $subtract: ["$overallNetDebit", "$overallNetCredit"] },
+                            else: 0
+                        }
+                    },
+                    overallNetCredit: {
+                        $cond: {
+                            if: { $gt: ["$overallNetCredit", "$overallNetDebit"] },
+                            then: { $subtract: ["$overallNetCredit", "$overallNetDebit"] },
+                            else: 0
+                        }
+                    }
+                }
+            }
+        ]);
+
+        // Apply formatting after aggregation
+        const formattedTransactions = transactions.map(account => {
+            
+            // Ensure entries exist
+            if (!Array.isArray(account.entries)) {
+                account.entries = [];
+            }
+            
+            // Loop through each entry and format its transactions
+            account.entries.forEach(entry => {
+                if (!Array.isArray(entry.transactions)) {
+                    entry.transactions = []; // Ensure transactions is an array
+                }
+                
+                entry.transactions = entry.transactions.map(transaction => {
+                    const { dateFormatExp, timeZoneExp, dateSplit } = organizationExists;
+                    
+                    const formattedData = singleCustomDateTime( transaction.createdDateTime, dateFormatExp, timeZoneExp, dateSplit );
+        
+                    return {
+                        ...transaction,
+                        createdDate: formattedData.createdDate,
+                        createdTime: formattedData.createdTime,
+                    };
+                });
+            });
+        
+            return account;
+        });
+                
+
+        let overallNetDebit = 0;
+        let overallNetCredit = 0;
+
+        const finalResult = formattedTransactions.map((account) => {
+            const openingBalance = openingBalances.find(ob => ob._id.equals(account._id)) || { totalDebit: 0, totalCredit: 0 };
+
+            const openingEntry = {
+                date: "Opening Balance",
+                transactions: [],
+                overAllNetDebit: openingBalance.totalDebit,
+                overAllNetCredit: openingBalance.totalCredit
+            };
+
+            account.entries.unshift(openingEntry);
+            account.overallNetDebit += openingBalance.totalDebit;
+            account.overallNetCredit += openingBalance.totalCredit;
+
+            overallNetDebit += account.overallNetDebit;
+            overallNetCredit += account.overallNetCredit;
+
+            return {
+                accountId: account._id,
+                accountName: account.accountName,
+                overallNetDebit: account.overallNetDebit,
+                overallNetCredit: account.overallNetCredit,
+                entries: account.entries
+            };
+        });
+
+        // Adjusting overallNetDebit and overallNetCredit based on the condition
+        if (overallNetDebit > overallNetCredit) {
+            overallNetDebit -= overallNetCredit;
+            overallNetCredit = 0;
+        } else if (overallNetCredit > overallNetDebit) {
+            overallNetCredit -= overallNetDebit;
+            overallNetDebit = 0;
+        }
+
+        return {
+            overallNetDebit,
+            overallNetCredit,
+            data: finalResult
+        };
+
+    } catch (error) {
+        console.error("Error fetching data:", error);
+        return { overallNetDebit: 0, overallNetCredit: 0, data: [] };
+    }
+}
