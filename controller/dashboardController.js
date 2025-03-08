@@ -66,8 +66,8 @@ exports.getCustomerStats = async (req, res) => {
 
 
     const topCustomersBySalesVolume = await topCustomerBySalesVolume(organizationId);
-    const customerRetentionRateOverTimeData = await customerRetentionRateOverTime(organizationId);
-
+    // const customerRetentionRateOverTimeData = await customerRetentionRateOverTime(organizationId);
+    const customerRetentionRateOverTimeData = await customerRetentionRateOverTime(organizationId, givenYear, givenMonth);
 
 
     // Send response
@@ -328,3 +328,42 @@ const customerRetentionRateOverTime = async (organizationId) => {
 
   return retentionRates;
 };
+// const customerRetentionRateOverTime = async (organizationId, year, month) => {
+//   const daysInMonth = moment(`${year}-${month}`, "YYYY-MM").daysInMonth();
+//   let retentionRates = [];
+
+//   for (let day = 1; day <= daysInMonth; day++) {
+//       const startDate = moment(`${year}-${month}-${day}`, "YYYY-MM-DD").startOf("day");
+//       const endDate = moment(startDate).endOf("day");
+//       const prevStartDate = moment(startDate).subtract(1, "day").startOf("day");
+//       const prevEndDate = moment(prevStartDate).endOf("day");
+
+//       // Count previous day's active customers
+//       const prevDayActiveCustomers = await Customer.countDocuments({
+//           organizationId,
+//           status: "Active",
+//           createdDateTime: { $lte: prevEndDate.toDate() } // All active customers up to previous day
+//       });
+
+//       console.log(`Day ${day - 1}: prevDayActiveCustomers:`, prevDayActiveCustomers);
+
+//       // Count active customers for the current day
+//       const currentDayActiveCustomers = await Customer.countDocuments({
+//           organizationId,
+//           status: "Active",
+//           createdDateTime: { $lte: endDate.toDate() }
+//       });
+
+//       console.log(`Day ${day}: currentDayActiveCustomers:`, currentDayActiveCustomers);
+
+//       const churnedCustomers = Math.max(0, prevDayActiveCustomers - currentDayActiveCustomers);
+//       const retentionRate = prevDayActiveCustomers > 0
+//           ? ((prevDayActiveCustomers - churnedCustomers) / prevDayActiveCustomers) * 100
+//           : 0;
+
+//       retentionRates.push({ day: day.toString(), rate: retentionRate });
+//   }
+
+//   return retentionRates;
+// };
+
