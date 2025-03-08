@@ -182,7 +182,6 @@ exports.getOverviewData = async (req, res) => {
 
         const totalRevenue = sales.overallNetCredit + indirectIncome.overallNetCredit;  
 
-
         // Total Inventory Value: Sum of (currentStock * costPrice)
         const filteredItems = enrichedItems.filter(item =>
             moment.tz(item.createdDateTime, orgTimeZone).isBetween(startDate, endDate, null, "[]")
