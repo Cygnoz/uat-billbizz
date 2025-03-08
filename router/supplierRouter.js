@@ -5,6 +5,8 @@ const supplierCont = require('../controller/supplierController');
 const supplierSettings = require('../controller/supplierSettings')
 const importController = require('../controller/importSupplier')
 const dashboardController = require("../controller/dashboardController")
+const dashboardCont = require("../controller/dashboardCont")
+
 
 const checkPermission = require('../controller/permission')
 const { verifyToken } = require('../controller/middleware');
@@ -40,5 +42,16 @@ router.put('/update-supplier-customer-settings',verifyToken,checkPermission('Edi
 router.get('/get-Supplier-Dashboard/:date',verifyToken,checkPermission('Viewed Supplier Details'),dashboardController.getSupplierStats);
 
 router.get('/get-supplier-bill/:supplierId',verifyToken,checkPermission('Viewed Supplier Details'),dashboardController.supplierBills);
+
+
+// Dashboard
+router.get('/supplier-dashboard-overview', verifyToken, dashboardCont.getOverviewData);
+router.get('/supplier-dashboard-topProductsBySupplier', verifyToken, dashboardCont.getTopProductsBySupplier);
+router.get('/supplier-dashboard-averageDeliveryTime', verifyToken, dashboardCont.getAverageDeliveryTime);
+router.get('/supplier-dashboard-topSupplierBySpend', verifyToken, dashboardCont.getTopSupplierBySpend);
+router.get('/supplier-dashboard-topOrdersBySupplier', verifyToken, dashboardCont.getTopOrdersBySupplier);
+
+
+
 
 module.exports = router
