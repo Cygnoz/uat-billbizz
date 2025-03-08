@@ -8,7 +8,7 @@ const mongoose = require('mongoose');
 
 const dataExist = async ( organizationId ) => {    
     const [organizationExists, allInvoice, allItem ] = await Promise.all([
-      Organization.findOne({ organizationId },{ timeZoneExp: 1, dateFormatExp: 1, dateSplit: 1, organizationCountry: 1, createdDateTime: 1 })
+      Organization.findOne({ organizationId },{ timeZoneExp: 1, dateFormatExp: 1, dateSplit: 1, organizationCountry: 1 })
       .lean(),
       SalesInvoice.find({ organizationId }, {_id: 1, items: 1, totalAmount: 1, createdDateTime: 1 })
       .populate('items.itemId', 'itemName')    
