@@ -1,4 +1,4 @@
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const Staff = require('../database/model/staff');
 const Users = require('../database/model/user');
 const Organization = require('../database/model/organization');
