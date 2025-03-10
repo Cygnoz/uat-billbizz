@@ -4,11 +4,13 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 
+const passport = require("passport");
 
 const server = express();
 const organizationRouter = require('./router/organizationRouter');
-require('./database/connection/connection');
 
+require('./database/connection/connection');
+require("./controller/azure/authController");
 
 server.use(express.json({ limit: '10mb' })); 
 server.use(express.urlencoded({ limit: '10mb', extended: true }));
