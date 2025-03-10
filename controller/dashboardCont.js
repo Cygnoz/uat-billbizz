@@ -12,13 +12,13 @@ const dataExist = async ( organizationId ) => {
     const [organizationExists, allBills, allSupplier, allPurchaseOrder ] = await Promise.all([
       Organization.findOne({ organizationId },{ timeZoneExp: 1, dateFormatExp: 1, dateSplit: 1, organizationCountry: 1 })
       .lean(),
-      Bills.find({ organizationId }, {_id: 1, supplierId: 1, items: 1, paidStatus: 1, paidAmount: 1, grandTotal: 1, balanceAmount: 1, billDate: 1, dueDate: 1, createdDateTime: 1 })
+      Bills.find({ organizationId }, {_id: 1, supplierId: 1, items: 1, paidStatus: 1, paidAmount: 1, grandTotal: 1, purchaseAmount: 1, balanceAmount: 1, billDate: 1, expectedShipmentDate: 1, createdDateTime: 1 })
       .populate('items.itemId', 'itemName') 
       .populate('supplierId', 'supplierDisplayName')    
       .lean(),
       Supplier.find({ organizationId }, {_id: 1, supplierDisplayName: 1, status: 1, createdDateTime: 1 })
       .lean(),
-      PurchaseOrder.find({ organizationId }, {_id: 1, supplierId: 1, items: 1, grandTotal: 1, createdDateTime: 1 })
+      PurchaseOrder.find({ organizationId }, {_id: 1, supplierId: 1, items: 1, grandTotal: 1, totalTaxAmount: 1, createdDateTime: 1 })
       .populate('items.itemId', 'itemName') 
       .populate('supplierId', 'supplierDisplayName')    
       .lean(),
@@ -245,7 +245,7 @@ exports.getTopProductsBySupplier = async (req, res) => {
                   const itemId = item.itemId._id.toString();
                   const itemName = item.itemId.itemName || "Undefined";
                   const itemQuantity = item.itemQuantity || 0; 
-                  const itemTotalAmount = bill.grandTotal || 0;
+                  const totalAmount = bill.purchaseAmount || 0;
                   const supplierName = bill.supplierId.supplierDisplayName || "Undefined"; 
 
                   // Get item details from enrichedItems
@@ -267,7 +267,7 @@ exports.getTopProductsBySupplier = async (req, res) => {
 
                   // Accumulate quantity and total amount
                   topProducts[itemId].totalSold += itemQuantity;
-                  topProducts[itemId].totalAmount += itemTotalAmount;
+                  topProducts[itemId].totalAmount += totalAmount;
               }
           });
       });
@@ -333,14 +333,14 @@ exports.getAverageDeliveryTime = async (req, res) => {
         const deliveryTimesBySupplier = {};
 
         filteredBills.forEach(bill => {
-            if (!bill.billDate || !bill.dueDate) return; // Skip if dates are missing
+            if (!bill.billDate || !bill.expectedShipmentDate) return; // Skip if dates are missing
 
             const billDate = moment(bill.billDate, "YYYY-MM-DD");
-            const dueDate = moment(bill.dueDate, "YYYY-MM-DD");
+            const expectedShipmentDate = moment(bill.expectedShipmentDate, "YYYY-MM-DD");
 
-            if (!billDate.isValid() || !dueDate.isValid()) return; // Skip invalid dates
+            if (!billDate.isValid() || !expectedShipmentDate.isValid()) return; // Skip invalid dates
 
-            const deliveryTime = dueDate.diff(billDate, "days"); // Difference in days
+            const deliveryTime = expectedShipmentDate.diff(billDate, "days"); // Difference in days
             const supplierId = bill.supplierId?._id?.toString(); // Ensure valid supplierId
 
             if (supplierId) {
@@ -389,7 +389,7 @@ exports.getTopSupplierBySpend = async (req, res) => {
         }
 
         // Fetch Organization Data
-        const { organizationExists, allBills, allSupplier } = await dataExist(organizationId);
+        const { organizationExists, allBills } = await dataExist(organizationId);
         if (!organizationExists) return res.status(404).json({ message: "Organization not found!" });
 
         // Get organization's time zone
