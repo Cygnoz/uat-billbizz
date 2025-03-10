@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs');
 const Staff = require('../database/model/staff');
 const Users = require('../database/model/user');
+const Role = require('../database/model/role');
 const Organization = require('../database/model/organization');
 const { cleanData } = require('../services/cleanData');
 
@@ -8,8 +9,9 @@ const { cleanData } = require('../services/cleanData');
 const dataExist = async ( organizationId, email, staffId ) => {
     const [organizationExists, existingUser  ] = await Promise.all([
       Organization.findOne({ organizationId }, { organizationId: 1, organizationCountry: 1, state: 1, timeZoneExp: 1 }),
-      Users.findOne({ organizationId, email }), 
+      Users.findOne({ organizationId, userEmail: email }, { organizationId: 1, userEmail: 1 }), 
     ]);
+    console.log("existingUser", existingUser)
     return { organizationExists, existingUser };
 };
 
@@ -24,41 +26,68 @@ exports.addStaff = async (req, res) => {
 
         const { organizationId, id: userId, userName } = req.user;
 
-        const {  email } = cleanedData;
+        const {  email, password } = cleanedData;
+
+        // const existingRole = await Role.findOne({ organizationId, roleName: "Staff" });
+        // if (!existingRole) {
+        //   console.log("Role doesn't exist!");
+        //   return res.status(404).json({ message: "Role doesn't exist!" });
+        // }
 
         const { organizationExists, existingUser } = await dataExist( organizationId, email, null );   
         
         if (!validateDataExist( organizationExists, res )) return;
         
-        if (existingUser) return res.status(409).json({ message: 'User already exists' });
+        if (existingUser) return res.status(409).json({ message: 'User with this email already exists.' });
         
-        if (!validateInputs( cleanedData, organizationExists,res)) return;
-        
+        if (!validateInputs( cleanedData, organizationExists, res)) return;
         
         const hashedPassword = await bcrypt.hash(password, 10);
         
-        const user = await Users.create({ email, password: hashedPassword });
-        const staff = await Staff.create({ ...staffData, email, password: hashedPassword, organizationId });
+        const user = await Users.create({
+          organizationId,
+          userName: cleanedData.staffName,
+          userNum: cleanedData.contact,
+          userEmail: cleanedData.email,
+          password: hashedPassword,
+          role: 'Staff',
+        });
+
+        const staff = await Staff.create({ ...cleanedData, email, password: hashedPassword, organizationId });
         
         res.status(201).json({ message: 'Staff added successfully', staff });
     } catch (error) {
+        console.error("Error in addStaff:", error);
         res.status(500).json({ message: 'Server Error', error: error.message });
     }
 };
 
 // Edit Staff
 exports.editStaff = async (req, res) => {
+  console.log("Edit Staff:", req.body);
     try {
         const { staffId } = req.params;
-        const { email, password, organizationId, ...updateData } = cleanData(req.body);
+        const { organizationId } = req.user;
 
-        await checkOrganization(organizationId);
-        
-        const staff = await fetchData(Staff, { _id: staffId });
+        const cleanedData = cleanData(req.body);
+        const { email, password, ...updateData } = cleanedData;
+
+        // const { email, password, organizationId, ...updateData } = cleanData(req.body);
+        // await checkOrganization(organizationId);
+
+        const staff = await Staff.findOne({ _id: staffId });
         if (!staff) return res.status(404).json({ message: 'Staff not found' });
+
+        const { organizationExists, existingUser } = await dataExist( organizationId, email, null );   
+        
+        if (!validateDataExist( organizationExists, res )) return;
+
+        // if (existingUser) return res.status(409).json({ message: 'User with this email already exists.' });
+        
+        if (!validateInputs( cleanedData, organizationExists, res)) return;
         
         if (email && email !== staff.email) {
-            const emailExists = await fetchData(Staff, { email, _id: { $ne: staffId } });
+            const emailExists = await Staff.findOne({ _id: { $ne: staffId }, organizationId, email });
             if (emailExists) return res.status(409).json({ message: 'Email already in use' });
             staff.email = email;
         }
@@ -69,6 +98,7 @@ exports.editStaff = async (req, res) => {
         
         res.status(200).json({ message: 'Staff updated successfully', staff });
     } catch (error) {
+      console.error("Error in editStaff:", error);
         res.status(500).json({ message: 'Server Error', error: error.message });
     }
 };
@@ -190,10 +220,7 @@ function validateField(condition, errorMsg, errors) {
 
 
 function validateReqFields( data, errors ) {
-  validateField( typeof data.customerId === 'undefined', "Please select a Customer", errors  );
-  validateField( typeof data.placeOfSupply === 'undefined', "Place of supply required", errors  );
-  validateField( typeof data.salesInvoiceDate === 'undefined', "Invoice Date required", errors  );
-  
+  validateField( typeof data.staffName === 'undefined', "Please enter the staff name.", errors  );
   
 
 }

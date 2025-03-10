@@ -9,8 +9,17 @@ const staffSchema = new Schema({
 
   staffName: { type: String },
   staffImage: { type: String },
+
+  proofImage: { type: String },
+  documentNumber: { type: String },
+  uploadDocument: { type: String },
+
   gender: { type: String },
+  location: { type: String },
   contact: { type: String },
+
+  department: { type: String },
+  designation: { type: String },
 
   email: { type: String },
   password: { type: String },
@@ -21,12 +30,10 @@ const staffSchema = new Schema({
   
   role: { type: String },
 
-  proofImage: { type: String },
+  employeeId: { type: String },
 
-  department: { type: String },
-  workType: { type: String },//role
+  workType: { type: String }, //role
 
-  designation: { type: String },
 
   paymentType: { type: String },//Monthly , per week
   salary: { type: String }
