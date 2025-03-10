@@ -9,7 +9,7 @@ const dataExist = async ( organizationId ) => {
     const [organizationExists, allInvoice, allCustomer ] = await Promise.all([
       Organization.findOne({ organizationId },{ timeZoneExp: 1, dateFormatExp: 1, dateSplit: 1, organizationCountry: 1 })
       .lean(),
-      SalesInvoice.find({ organizationId }, {_id: 1, customerId: 1, items: 1, paidStatus: 1, paidAmount: 1, totalAmount: 1, createdDateTime: 1 })
+      SalesInvoice.find({ organizationId }, {_id: 1, customerId: 1, items: 1, paidStatus: 1, paidAmount: 1, totalAmount: 1, saleAmount: 1, createdDateTime: 1 })
       .populate('items.itemId', 'itemName') 
       .populate('customerId', 'customerDisplayName')    
       .lean(),
@@ -23,8 +23,6 @@ const dataExist = async ( organizationId ) => {
 // get date range
 const getDateRange = (filterType, date, timeZone) => {
     
-     // const momentDate = moment.tz(date, timeZone);
-
     // Ensure the date format is YYYY-MM-DD to avoid Moment.js deprecation warning
     const formattedDate = date.replace(/\//g, "-"); // Ensure YYYY-MM-DD format
     const utcDate = new Date(formattedDate); // Convert to Date object
@@ -185,9 +183,9 @@ exports.getTopCustomers = async (req, res) => {
 
         console.log("Filtered Invoices:", filteredInvoices);
 
-        // Sort invoices by totalAmount in descending order & take top 5
+        // Sort invoices by saleAmount in descending order & take top 5
         const topInvoices = filteredInvoices
-            .sort((a, b) => b.totalAmount - a.totalAmount) // Sort in descending order
+            .sort((a, b) => b.saleAmount - a.saleAmount) // Sort in descending order
             .slice(0, 5); // Get top 5
 
         console.log("Top 5 Invoices:", topInvoices);
@@ -207,7 +205,7 @@ exports.getTopCustomers = async (req, res) => {
                         totalSpent: 0
                     };
                 }
-                customerSales[customerId].totalSpent += inv.totalAmount; // Sum total purchase
+                customerSales[customerId].totalSpent += inv.saleAmount; // Sum total purchase
             }
         });
 
@@ -364,7 +362,7 @@ exports.getAverageOrderValue = async (req, res) => {
         console.log("Filtered Invoices:", filteredInvoices);
 
         // Calculate total sales (sum of all invoice amounts) and count orders
-        const totalSales = filteredInvoices.reduce((sum, inv) => sum + inv.totalAmount, 0);
+        const totalSales = filteredInvoices.reduce((sum, inv) => sum + inv.saleAmount, 0);
         const totalOrders = filteredInvoices.length;
 
         // Formula for Average Order Value (AOV)
