@@ -18,7 +18,7 @@ const dataExist = async ( organizationId ) => {
     const [organizationExists, allInvoice, allCustomer, allItem, allExpense ] = await Promise.all([
       Organization.findOne({ organizationId },{ timeZoneExp: 1, dateFormatExp: 1, dateSplit: 1, organizationCountry: 1 })
       .lean(),
-      SalesInvoice.find({ organizationId }, {_id: 1, customerId: 1, items: 1, paidStatus: 1, paidAmount: 1, totalAmount: 1, createdDateTime: 1 })
+      SalesInvoice.find({ organizationId }, {_id: 1, customerId: 1, items: 1, paidStatus: 1, paidAmount: 1, totalAmount: 1, saleAmount: 1, createdDateTime: 1 })
       .populate('items.itemId', 'itemName') 
       .populate('customerId', 'customerDisplayName')    
       .lean(),
@@ -211,9 +211,9 @@ exports.getOverviewData = async (req, res) => {
             moment.tz(customer.createdDateTime, orgTimeZone).isBetween(startDate, endDate, null, "[]")
         ).length;
 
-        // Total Sales: Sum of totalAmount from sales invoices filtered for the selected range
+        // Total Sales: Sum of saleAmount from sales invoices filtered for the selected range
         const totalSales = filteredInvoices.reduce(
-            (sum, inv) => sum + (parseFloat(inv.totalAmount) || 0), 
+            (sum, inv) => sum + (parseFloat(inv.saleAmount) || 0), 
             0
         );
 
@@ -279,7 +279,7 @@ exports.getSalesOverTime = async (req, res) => {
         allInvoice.forEach(inv => {
             const invoiceDate = moment.tz(inv.createdDateTime, orgTimeZone).format("YYYY-MM-DD");
             if (dailySales[invoiceDate] !== undefined) {
-                dailySales[invoiceDate] += parseFloat(inv.totalAmount) || 0;
+                dailySales[invoiceDate] += parseFloat(inv.saleAmount) || 0;
             }
         });
 
@@ -291,7 +291,7 @@ exports.getSalesOverTime = async (req, res) => {
             totalSales: dailySales[date]
         }));
 
-        // Total Sales: Sum of totalAmount from sales invoices filtered for the selected range
+        // Total Sales: Sum of saleAmount from sales invoices filtered for the selected range
         const totalSales = dailySalesArray.reduce((sum, day) => sum + day.totalSales, 0);
 
         // Response JSON
@@ -426,9 +426,9 @@ exports.getTopProductCustomer = async (req, res) => {
 
         console.log("Filtered Invoices:", filteredInvoices);
 
-        // Sort invoices by totalAmount in descending order & take top 5
+        // Sort invoices by saleAmount in descending order & take top 5
         const topInvoices = filteredInvoices
-            .sort((a, b) => b.totalAmount - a.totalAmount) // Sort in descending order
+            .sort((a, b) => b.saleAmount - a.saleAmount) // Sort in descending order
             .slice(0, 5); // Get top 5
 
         console.log("Top 5 Invoices:", topInvoices);
@@ -475,7 +475,7 @@ exports.getTopProductCustomer = async (req, res) => {
                         totalSpent: 0
                     };
                 }
-                customerSales[customerId].totalSpent += inv.totalAmount; // Sum total purchase
+                customerSales[customerId].totalSpent += inv.saleAmount; // Sum total purchase
             }
         });
 
