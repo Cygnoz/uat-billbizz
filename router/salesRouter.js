@@ -19,8 +19,19 @@ const updateCreditNote = require('../controller/Credit Note/updateCreditNote')
 
 const salesSettings = require('../controller/salesSettings')
 
+const dashboardCont = require('../controller/dashboardCont')
+
 const checkPermission = require('../controller/permission');
 const { verifyToken } = require('../controller/middleware');
+
+
+
+
+// Dashboard
+router.get('/get-salesDashboard-overview', verifyToken, dashboardCont.getOverviewData)
+router.get('/get-salesDashboard-topSalesOrder', verifyToken, dashboardCont.getTopSalesOrder)
+router.get('/get-salesDashboard-recentTransactions', verifyToken, dashboardCont.getRecentTransactions)
+
 
 
 //Sales settings
@@ -89,8 +100,6 @@ router.delete('/delete-sales-invoice/:invoiceId',verifyToken,checkPermission("De
 
 
 
-
-
 //Sales receipt
 router.post('/sales-receipt',verifyToken,checkPermission("Created a New Receipt"),salesReceipt.addReceipt)
 
@@ -108,7 +117,6 @@ router.delete('/delete-sales-receipt/:receiptId',verifyToken,checkPermission("De
 
 
 
-
 //Credit Note
 router.post('/add-creditNote',verifyToken,checkPermission("Created a New Credit Note"),creditNote.addCreditNote);
 
@@ -123,6 +131,9 @@ router.put('/update-creditNote/:creditId',verifyToken,checkPermission("Edited Cr
 router.get('/creditNote-journal/:creditId',verifyToken,checkPermission("Viewed Credit Note Details"),creditNote.creditNoteJournal);
 
 router.delete('/delete-creditNote/:creditId',verifyToken,checkPermission("Deleted Credit Note Information"),updateCreditNote.deleteCreditNote);
+
+
+
 
 
 
