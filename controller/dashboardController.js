@@ -10,7 +10,7 @@ const dataExist = async ( organizationId ) => {
     const [organizationExists, allInvoice, allItem ] = await Promise.all([
       Organization.findOne({ organizationId },{ timeZoneExp: 1, dateFormatExp: 1, dateSplit: 1, organizationCountry: 1 })
       .lean(),
-      SalesInvoice.find({ organizationId }, {_id: 1, items: 1, totalAmount: 1, createdDateTime: 1 })
+      SalesInvoice.find({ organizationId }, {_id: 1, items: 1, totalAmount: 1, saleAmount: 1, createdDateTime: 1 })
       .populate('items.itemId', 'itemName')    
       .lean(),
       Item.find({ organizationId }, {_id: 1, itemName: 1, createdDateTime: 1 })
@@ -242,7 +242,7 @@ exports.getTopSellingProducts = async (req, res) => {
                   const itemId = item.itemId._id.toString();
                   const itemName = item.itemId.itemName || "Undefined";
                   const itemQuantity = item.quantity || 0; 
-                  const itemTotalAmount = inv.totalAmount || 0; 
+                  const totalAmount = inv.saleAmount || 0; 
 
                   // Get item details from enrichedItems
                   const enrichedItem = itemMap.get(itemId);
@@ -268,7 +268,7 @@ exports.getTopSellingProducts = async (req, res) => {
 
                   // Accumulate quantity and total amount
                   topProducts[itemId].totalSold += itemQuantity;
-                  topProducts[itemId].totalAmount += itemTotalAmount;
+                  topProducts[itemId].totalAmount += totalAmount;
               }
           });
       });
@@ -290,6 +290,7 @@ exports.getTopSellingProducts = async (req, res) => {
       res.status(500).json({ message: "Internal server error." });
   }
 };
+
 // // Top Selling Products & Top Selling Products by Category
 // exports.getTopSellingProducts = async (req, res) => {
 //   try {
