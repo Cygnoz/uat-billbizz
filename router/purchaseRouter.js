@@ -18,9 +18,22 @@ const updateBills = require('../controller/Bills/updateBills')
 
 const SupplierController = require('../controller/supplierController')
  
+const dashboardController = require('../controller/dashboardController')
+
 
 const checkPermission = require('../controller/permission')
 const { verifyToken } = require('../controller/middleware');
+
+
+
+
+// Dashboard
+router.get('/get-purchaseDashboard-overview', verifyToken, dashboardController.getOverviewData);
+router.get('/get-purchaseDashboard-purchaseOverTime', verifyToken, dashboardController.getPurchaseOverTime);
+router.get('/get-purchaseDashboard-topProductsBySpend', verifyToken, dashboardController.getTopProductsBySpend);
+router.get('/get-purchaseDashboard-recentTransactions', verifyToken, dashboardController.getRecentTransactions);
+
+
 
 //Purchase Order
 router.post('/add-purchaseOrder', verifyToken,checkPermission('Created a New Purchase Order'), purchaseOrderController.addPurchaseOrder);

@@ -31,15 +31,49 @@ exports.updateDebitNote = async (req, res) => {
       // cleanedData.depositAccountId = cleanedData.depositTo || undefined;
 
       const { supplierId, items, billId } = cleanedData;
-
+ 
       const itemIds = items.map(item => item.itemId);
 
       // Fetch the latest debit note for the given supplierId and organizationId
-      const latestDebitNote = await getLatestDebitNote(debitId, organizationId, supplierId, billId, itemIds, res);
-      if (latestDebitNote) {
-        return; 
-      }
-    
+      // const latestDebitNote = await getLatestDebitNote(debitId, organizationId, supplierId, billId, itemIds, res);
+      // if (latestDebitNote) {
+      //   return res.status(404).json({ message: "Only the latest debit note can be edited." }); 
+      // }
+      // Fetch the latest debit note for the given supplierId and organizationId
+const latestDebitNote = await DebitNote.find({
+  organizationId,
+  supplierId,
+  billId,
+  "items.itemId": { $in: itemIds },
+}).sort({ createdDateTime: -1 });
+
+if (!latestDebitNote) {
+  console.log("No debit note found for this supplier.");
+  return res.status(404).json({ message: "No debit note found for this supplier." });
+}
+
+latestDebitNote.forEach(data => {
+  console.log("latestDebitNoteId",data._id);
+
+})
+
+  console.log("latestDebitNoteId",latestDebitNote[0]._id);
+  console.log("debitId",debitId);
+
+  // Check if the provided debitId matches the latest one
+if (latestDebitNote[0]._id.toString() !== debitId) {
+  return res.status(400).json({ message: "Only the latest debit note can be edited." });
+}
+
+
+
+  
+  
+      // Check if the provided debitId matches the latest one
+      // if (latestDebitNote._id.toString() !== debitId) {
+      //   return res.status(404).json({ message: "Only the latest debit note can be edited." }); 
+      // }
+
       // Validate _id's
       const validateAllIds = validateIds({
         supplierId,
@@ -60,11 +94,9 @@ exports.updateDebitNote = async (req, res) => {
 
       const { itemTable } = await dataExist.itemDataExists( organizationId, items );
 
-    //   const validationData = {cleanedData, customerExist, invoiceExist, items, itemTable, organizationExists, existingDebitNoteItems};
-
       // Validate Inputs
       if (!validateInputs( cleanedData, supplierExist, billExist, items, itemTable, organizationExists, existingDebitNoteItems, res)) return;
-  
+
       // Tax Type 
       calculation.taxType(cleanedData, supplierExist);
 
@@ -127,6 +159,8 @@ exports.updateDebitNote = async (req, res) => {
 
 
 
+
+
   // Delete Debit Note
   exports.deleteDebitNote = async (req, res) => {
     console.log("Delete debit note request received:", req.params);
@@ -147,25 +181,29 @@ exports.updateDebitNote = async (req, res) => {
 
         const itemIds = items.map(item => item.itemId);     
 
-        // Fetch the latest debit note for the given supplierId and organizationId
-        const latestDebitNote = await DebitNote.findOne({ 
-          organizationId, 
+        // Fetch the latest non-deleted debit note for the given supplierId, billId, and items
+        const latestDebitNote = await DebitNote.findOne({
+          organizationId,
           supplierId,
           billId,
           "items.itemId": { $in: itemIds }, 
-        }).sort({ createdDateTime: -1 }); // Sort by createdDateTime in descending order
-      
+          // isDeleted: { $ne: false } // Ensure it's not marked as deleted
+        }).sort({ createdDateTime: +1 }); // Sort by createdDateTime in descending order
+
         if (!latestDebitNote) {
-            console.log("No debit note found for this supplier.");
-            return res.status(404).json({ message: "No debit note found for this supplier." });
+          console.log("No debit note found for this supplier.");
+          return res.status(404).json({ message: "No debit note found for this supplier." });
         }
-      
+
+        console.log("latestDebitNoteId", latestDebitNote._id.toString());
+        console.log("debitId", debitId);
+
         // Check if the provided debitId matches the latest one
         if (latestDebitNote._id.toString() !== debitId) {
           return res.status(400).json({
-            message: "Only the latest debit note can be deleted."
+              message: "Only the latest debit note can be deleted."
           });
-        }
+        } 
 
         // Extract debit note items
         const existingDebitNoteItems = existingDebitNote.items;
@@ -182,41 +220,41 @@ exports.updateDebitNote = async (req, res) => {
         });
 
         // Delete the debit note
-        const deletedDebitNote = await existingDebitNote.deleteOne();
-        if (!deletedDebitNote) {
-            console.error("Failed to delete debit note.");
-            return res.status(500).json({ message: "Failed to delete debit note" });
-        }
+        // const deletedDebitNote = await existingDebitNote.deleteOne();
+        // if (!deletedDebitNote) {
+        //     console.error("Failed to delete debit note.");
+        //     return res.status(500).json({ message: "Failed to delete debit note" });
+        // }
 
-        await supplierHistoryEntry.save();
+        // await supplierHistoryEntry.save();
 
-        // Update returnQuantity after deletion
-        await updateReturnQuantity( existingDebitNoteItems, billId );
+        // // Update returnQuantity after deletion
+        // await updateReturnQuantity( existingDebitNoteItems, billId );
 
-        //Update purchase bill Balance      
-        await deleteUpdateBillBalance( billId, existingDebitNoteItems.grandTotal );
+        // // //Update purchase bill Balance      
+        // await deleteUpdateBillBalance( billId, existingDebitNote.grandTotal );
 
-        // Fetch existing itemTrack entries
-        const existingItemTracks = await ItemTrack.find({ organizationId, operationId: debitId });
-        // Delete existing itemTrack entries for the operation
-        if (existingItemTracks.length > 0) {
-          await ItemTrack.deleteMany({ organizationId, operationId: debitId });
-          console.log(`Deleted existing itemTrack entries for operationId: ${debitId}`);
-        }
+        // // Fetch existing itemTrack entries
+        // const existingItemTracks = await ItemTrack.find({ organizationId, operationId: debitId });
+        // // Delete existing itemTrack entries for the operation
+        // if (existingItemTracks.length > 0) {
+        //   await ItemTrack.deleteMany({ organizationId, operationId: debitId });
+        //   console.log(`Deleted existing itemTrack entries for operationId: ${debitId}`);
+        // }
 
-        // Fetch existing TrialBalance's createdDateTime
-        const existingTrialBalance = await TrialBalance.findOne({
-          organizationId: existingDebitNote.organizationId,
-          operationId: existingDebitNote._id,
-        });  
-        // If there are existing entries, delete them
-        if (existingTrialBalance) {
-          await TrialBalance.deleteMany({
-            organizationId: existingDebitNote.organizationId,
-            operationId: existingDebitNote._id,
-          });
-          console.log(`Deleted existing TrialBalance entries for operationId: ${existingDebitNote._id}`);
-        }
+        // // Fetch existing TrialBalance's createdDateTime
+        // const existingTrialBalance = await TrialBalance.findOne({
+        //   organizationId: existingDebitNote.organizationId,
+        //   operationId: existingDebitNote._id,
+        // });  
+        // // If there are existing entries, delete them
+        // if (existingTrialBalance) {
+        //   await TrialBalance.deleteMany({
+        //     organizationId: existingDebitNote.organizationId,
+        //     operationId: existingDebitNote._id,
+        //   });
+        //   console.log(`Deleted existing TrialBalance entries for operationId: ${existingDebitNote._id}`);
+        // }
 
         res.status(200).json({ message: "Debit note deleted successfully" });
         console.log("Debit note deleted successfully with ID:", debitId);
@@ -248,28 +286,58 @@ async function getExistingDebitNote(debitId, organizationId, res) {
 
 
 // Get Latest Debit Note
-async function getLatestDebitNote(debitId, organizationId, supplierId, billId, itemIds, res) {
-  const latestDebitNote = await DebitNote.findOne({ 
-      organizationId, 
+// async function getLatestDebitNote(debitId, organizationId, supplierId, billId, itemIds, res) {
+//   const latestDebitNote = await DebitNote.findOne({ 
+//       organizationId, 
+//       supplierId,
+//       billId, 
+//       "items.itemId": { $in: itemIds },
+//   }).sort({ createdDateTime: -1 }); // Sort by createdDateTime in descending order
+
+//   if (!latestDebitNote) {
+//       console.log("No debit note found for this supplier.");
+//       return res.status(404).json({ message: "No debit note found for this supplier." });
+//   }
+
+//   console.log("latestDebitNote:",latestDebitNote)
+//   // Check if the provided debitId matches the latest one 
+//   if (latestDebitNote._id.toString() === debitId) {
+//     return res.status(400).json({
+//       message: "Only the latest debit note can be edited.1"
+//     });
+//     // console.log("Only the latest debit note can be edited.1");
+//   }
+
+//   return latestDebitNote;
+// }
+async function getLatestDebitNote(debitId, organizationId, supplierId, billId, itemIds) {
+  try {
+    const latestDebitNote = await DebitNote.findOne({
+      organizationId,
       supplierId,
-      billId, 
+      billId,
       "items.itemId": { $in: itemIds },
-  }).sort({ createdDateTime: -1 }); // Sort by createdDateTime in descending order
+    }).sort({ createdDateTime: -1 });
 
-  if (!latestDebitNote) {
+    if (!latestDebitNote) {
       console.log("No debit note found for this supplier.");
-      return res.status(404).json({ message: "No debit note found for this supplier." });
-  }
+      return { error: "No debit note found for this supplier." };
+    }
 
-  // Check if the provided debitId matches the latest one
-  if (latestDebitNote._id.toString() !== debitId) {
-    return res.status(400).json({
-      message: "Only the latest debit note can be edited."
-    });
-  }
+    console.log("latestDebitNote:", latestDebitNote);
 
-  return latestDebitNote;
+    // Check if the provided debitId matches the latest one
+    if (latestDebitNote._id.toString() !== debitId.toString()) {
+      return { error: "Only the latest debit note can be edited.1232" };
+    }
+
+    return { latestDebitNote };
+  } catch (error) {
+    console.error("Error fetching latest debit note:", error);
+    return { error: "Internal server error while fetching latest debit note." };
+  }
 }
+
 
 
 
@@ -332,6 +400,8 @@ const deleteUpdateBillBalance = async ( billId, oldGrandTotal) => {
   try {
     const bill = await Bill.findOne({ _id: billId });
     let newBalance = bill.balanceAmount + oldGrandTotal; 
+    console.log("bill:",bill.balanceAmount)
+    console.log("oldGrandTotal:",oldGrandTotal);
     if (newBalance < 0) {
       newBalance = 0;
     }
@@ -343,6 +413,7 @@ const deleteUpdateBillBalance = async ( billId, oldGrandTotal) => {
     throw new Error("Failed to update purchase bill balance.");
   }
 };
+
 
 
 
@@ -742,7 +813,6 @@ function capitalize(word) {
 
   async function journal( savedDebitNote, defAcc, supplierAccount, depositAccount ) {  
 
-
     await TrialBalance.deleteMany({
         organizationId: savedDebitNote.organizationId,
         operationId: savedDebitNote._id,
@@ -825,7 +895,7 @@ function capitalize(word) {
         operationId: savedDebitNote._id,
         transactionId: savedDebitNote.debitNote,
         date: savedDebitNote.createdDate,
-        accountId: depositAccount._id || undefined,
+        accountId: depositAccount?._id || undefined,
         action: "Debit Note",
         debitAmount: savedDebitNote.grandTotal || 0,
         creditAmount: 0,
