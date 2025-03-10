@@ -5,9 +5,19 @@ const router = new express.Router()
 const expenseController = require('../controller/Expenses/expenseController');
 const updateExpense = require('../controller/Expenses/updateExpense');
 
+const expenseDashboard = require('../controller/Expenses/expenseDashboard');
+
 const checkPermission = require('../controller/permission');
 const { verifyToken } = require('../controller/middleware');
 const { nexVerifyToken } = require('../controller/nexMiddleware');
+
+
+
+// dashboard
+router.get('/get-expenseDashboard-overview', verifyToken, expenseDashboard.getOverviewData);
+router.get('/get-expenseDashboard-expenseOverTime', verifyToken, expenseDashboard.getExpenseOverTime);
+router.get('/get-expenseDashboard-topExpenseByCategory', verifyToken, expenseDashboard.getTopExpenseByCategory);
+router.get('/get-expenseDashboard-expenseBreakdownBySupplier', verifyToken, expenseDashboard.getExpenseBreakdownBySupplier);
 
 
 // expense
