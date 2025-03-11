@@ -17,10 +17,12 @@ const { verifyToken } = require('../controller/middleware');
 //Basic
 router.get('/customer-additional-data', verifyToken,customerController.getCustomerAdditionalData);
 
-router.get('/customer-dashboard-overview', verifyToken, dashboardCont.getOverviewData);
-router.get('/customer-dashboard-topCustomers', verifyToken, dashboardCont.getTopCustomers);
-router.get('/customer-dashboard-retentionRateOverTime', verifyToken, dashboardCont.getCustomerRetentionOverTime);
-router.get('/customer-dashboard-averageOrderValue', verifyToken, dashboardCont.getAverageOrderValue);
+
+// Dashboard
+router.get('/get-customerDashboard-overview', verifyToken, dashboardCont.getOverviewData);
+router.get('/get-customerDashboard-topCustomers', verifyToken, dashboardCont.getTopCustomers);
+router.get('/get-customerDashboard-retentionRateOverTime', verifyToken, dashboardCont.getCustomerRetentionOverTime);
+router.get('/get-customerDashboard-averageOrderValue', verifyToken, dashboardCont.getAverageOrderValue);
 
 
 
