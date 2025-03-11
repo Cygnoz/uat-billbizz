@@ -45,11 +45,11 @@ router.get('/get-supplier-bill/:supplierId',verifyToken,checkPermission('Viewed 
 
 
 // Dashboard
-router.get('/supplier-dashboard-overview', verifyToken, dashboardCont.getOverviewData);
-router.get('/supplier-dashboard-topProductsBySupplier', verifyToken, dashboardCont.getTopProductsBySupplier);
-router.get('/supplier-dashboard-averageDeliveryTime', verifyToken, dashboardCont.getAverageDeliveryTime);
-router.get('/supplier-dashboard-topSupplierBySpend', verifyToken, dashboardCont.getTopSupplierBySpend);
-router.get('/supplier-dashboard-topOrdersBySupplier', verifyToken, dashboardCont.getTopOrdersBySupplier);
+router.get('/get-supplierDashboard-overview', verifyToken, dashboardCont.getOverviewData);
+router.get('/get-supplierDashboard-topProductsBySupplier', verifyToken, dashboardCont.getTopProductsBySupplier);
+router.get('/get-supplierDashboard-averageDeliveryTime', verifyToken, dashboardCont.getAverageDeliveryTime);
+router.get('/get-supplierDashboard-topSupplierBySpend', verifyToken, dashboardCont.getTopSupplierBySpend);
+router.get('/get-supplierDashboard-topOrdersBySupplier', verifyToken, dashboardCont.getTopOrdersBySupplier);
 
 
 
