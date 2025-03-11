@@ -33,30 +33,12 @@ exports.updateCreditNote = async (req, res) => {
  
       const itemIds = items.map(item => item.itemId); 
 
-      // // Fetch the latest credit note for the given customerId and organizationId
-      // const latestCreditNote = await getLatestCreditNote(creditId, organizationId, customerId, invoiceId, itemIds, res);
-      // if (latestCreditNote) {
-      //   return res.status(404).json({ message: "Only the latest credit note can be edited." }); 
-      // }
+      // Fetch the latest credit note for the given customerId and organizationId
+      const result  = await getLatestCreditNote(creditId, organizationId, customerId, invoiceId, itemIds, res);
 
-      const latestCreditNote = await CreditNote.findOne({ 
-        organizationId, 
-        customerId,
-        invoiceId, 
-        "items.itemId": { $in: itemIds },
-    }).sort({ createdDateTime: -1 }); // Sort by createdDateTime in descending order
-  
-    if (!latestCreditNote) {
-        console.log("No credit note found for this customer.");
-        return res.status(404).json({ message: "No credit note found for this customer." });
-    }
-  
-    // Check if the provided creditId matches the latest one
-    if (latestCreditNote._id.toString() === creditId) {
-      return res.status(400).json({
-        message: "Only the latest credit note can be edited."
-      });
-    }
+      if (result.error) {
+        return res.status(400).json({ message: result.error });
+      }
       
       // Validate _id's
       const validateAllIds = validateIds({
@@ -69,7 +51,7 @@ exports.updateCreditNote = async (req, res) => {
       if (validateAllIds) {
         return res.status(400).json({ message: validateAllIds });
       }
-
+      
       // Fetch related data
       const { organizationExists, customerExist, invoiceExist, defaultAccount, customerAccount } = await dataExist.dataExist( organizationId, customerId, invoiceId );  
       
@@ -96,19 +78,19 @@ exports.updateCreditNote = async (req, res) => {
   
       // Calculate Credit Note
       if (!calculation.calculateCreditNote(cleanedData, res)) return;
-
+      
       //Sales Journal      
       if (!accounts.salesJournal( cleanedData, res )) return;
       
       cleanedData.createdDateTime = moment.tz(cleanedData.customerCreditDate, "YYYY-MM-DDTHH:mm:ss.SSS[Z]", organizationExists.timeZoneExp).toISOString();           
-
+      
       const mongooseDocument = CreditNote.hydrate(existingCreditNote);
       Object.assign(mongooseDocument, cleanedData);
       const savedCreditNote = await mongooseDocument.save();
       if (!savedCreditNote) {
         return res.status(500).json({ message: "Failed to update credit note" });
       }
-
+      
       // Add entry to Customer History
       const customerHistoryEntry = new CustomerHistory({
         organizationId,
@@ -173,12 +155,13 @@ exports.updateCreditNote = async (req, res) => {
           customerId,
           invoiceId,
           "items.itemId": { $in: itemIds }, 
-        }).sort({ createdDateTime: -1 }); // Sort by createdDateTime in descending order
+        }).sort({ createdDateTime: -1, _id: -1 }); 
       
         if (!latestCreditNote) {
             console.log("No credit note found for this customer.");
             return res.status(404).json({ message: "No credit note found for this customer." });
         }
+        
       
         // Check if the provided creditId matches the latest one
         if (latestCreditNote._id.toString() !== creditId) {
@@ -272,21 +255,17 @@ async function getLatestCreditNote(creditId, organizationId, customerId, invoice
       customerId,
       invoiceId, 
       "items.itemId": { $in: itemIds },
-  }).sort({ createdDateTime: -1 }); // Sort by createdDateTime in descending order
+  }).sort({ createdDateTime: -1, _id: -1 });
 
   if (!latestCreditNote) {
-      console.log("No credit note found for this customer.");
-      return res.status(404).json({ message: "No credit note found for this customer." });
+    return { error: "No credit note found for this customer." };
   }
 
-  // Check if the provided creditId matches the latest one
   if (latestCreditNote._id.toString() !== creditId) {
-    return res.status(400).json({
-      message: "Only the latest credit note can be edited."
-    });
+      return { error: "Only the latest credit note can be edited." };
   }
 
-  return latestCreditNote;
+  return { latestCreditNote };
 }
 
 
