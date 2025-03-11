@@ -35,45 +35,12 @@ exports.updateDebitNote = async (req, res) => {
       const itemIds = items.map(item => item.itemId);
 
       // Fetch the latest debit note for the given supplierId and organizationId
-      // const latestDebitNote = await getLatestDebitNote(debitId, organizationId, supplierId, billId, itemIds, res);
-      // if (latestDebitNote) {
-      //   return res.status(404).json({ message: "Only the latest debit note can be edited." }); 
-      // }
-      // Fetch the latest debit note for the given supplierId and organizationId
-const latestDebitNote = await DebitNote.find({
-  organizationId,
-  supplierId,
-  billId,
-  "items.itemId": { $in: itemIds },
-}).sort({ createdDateTime: -1 });
-
-if (!latestDebitNote) {
-  console.log("No debit note found for this supplier.");
-  return res.status(404).json({ message: "No debit note found for this supplier." });
-}
-
-latestDebitNote.forEach(data => {
-  console.log("latestDebitNoteId",data._id);
-
-})
-
-  console.log("latestDebitNoteId",latestDebitNote[0]._id);
-  console.log("debitId",debitId);
-
-  // Check if the provided debitId matches the latest one
-if (latestDebitNote[0]._id.toString() !== debitId) {
-  return res.status(400).json({ message: "Only the latest debit note can be edited." });
-}
-
-
-
-  
-  
-      // Check if the provided debitId matches the latest one
-      // if (latestDebitNote._id.toString() !== debitId) {
-      //   return res.status(404).json({ message: "Only the latest debit note can be edited." }); 
-      // }
-
+      const result  = await getLatestDebitNote(debitId, organizationId, supplierId, billId, itemIds, res);
+      
+      if (result.error) {
+        return res.status(400).json({ message: result.error });
+      }
+    
       // Validate _id's
       const validateAllIds = validateIds({
         supplierId,
@@ -187,9 +154,8 @@ if (latestDebitNote[0]._id.toString() !== debitId) {
           supplierId,
           billId,
           "items.itemId": { $in: itemIds }, 
-          // isDeleted: { $ne: false } // Ensure it's not marked as deleted
-        }).sort({ createdDateTime: +1 }); // Sort by createdDateTime in descending order
-
+        }).sort({ createdDateTime: -1, _id: -1 }); 
+      
         if (!latestDebitNote) {
           console.log("No debit note found for this supplier.");
           return res.status(404).json({ message: "No debit note found for this supplier." });
@@ -317,27 +283,19 @@ async function getLatestDebitNote(debitId, organizationId, supplierId, billId, i
       supplierId,
       billId,
       "items.itemId": { $in: itemIds },
-    }).sort({ createdDateTime: -1 });
+  }).sort({ createdDateTime: -1, _id: -1 });
 
-    if (!latestDebitNote) {
-      console.log("No debit note found for this supplier.");
-      return { error: "No debit note found for this supplier." };
-    }
-
-    console.log("latestDebitNote:", latestDebitNote);
-
-    // Check if the provided debitId matches the latest one
-    if (latestDebitNote._id.toString() !== debitId.toString()) {
-      return { error: "Only the latest debit note can be edited.1232" };
-    }
-
-    return { latestDebitNote };
-  } catch (error) {
-    console.error("Error fetching latest debit note:", error);
-    return { error: "Internal server error while fetching latest debit note." };
+  if (!latestDebitNote) {
+    return { error: "No debit note found for this supplier." };
   }
-}
 
+  // Check if the provided debitId matches the latest one
+  if (latestDebitNote._id.toString() !== debitId) {
+    return { error: "Only the latest debit note can be edited." };
+  }
+
+  return latestDebitNote;
+}
 
 
 
