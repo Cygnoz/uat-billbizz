@@ -33,12 +33,6 @@ exports.updateCreditNote = async (req, res) => {
  
       const itemIds = items.map(item => item.itemId); 
 
-      // // Fetch the latest credit note for the given customerId and organizationId
-      // const latestCreditNote = await getLatestCreditNote(creditId, organizationId, customerId, invoiceId, itemIds, res);
-      // if (latestCreditNote) {
-      //   return res.status(404).json({ message: "Only the latest credit note can be edited." }); 
-      // }
-
       // Fetch the latest credit note for the given customerId and organizationId
       const result  = await getLatestCreditNote(creditId, organizationId, customerId, invoiceId, itemIds, res);
 
@@ -261,7 +255,7 @@ async function getLatestCreditNote(creditId, organizationId, customerId, invoice
       customerId,
       invoiceId, 
       "items.itemId": { $in: itemIds },
-  }).sort({ createdDateTime: -1 }); // Sort by createdDateTime in descending order
+  }).sort({ createdDateTime: -1, _id: -1 });
 
   if (!latestCreditNote) {
     return { error: "No credit note found for this customer." };
