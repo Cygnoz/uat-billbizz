@@ -35,9 +35,10 @@ exports.updateDebitNote = async (req, res) => {
       const itemIds = items.map(item => item.itemId);
 
       // Fetch the latest debit note for the given supplierId and organizationId
-      const latestDebitNote = await getLatestDebitNote(debitId, organizationId, supplierId, billId, itemIds, res);
-      if (latestDebitNote) {
-        return; 
+      const result  = await getLatestDebitNote(debitId, organizationId, supplierId, billId, itemIds, res);
+      
+      if (result.error) {
+        return res.status(400).json({ message: result.error });
       }
     
       // Validate _id's
@@ -153,7 +154,7 @@ exports.updateDebitNote = async (req, res) => {
           supplierId,
           billId,
           "items.itemId": { $in: itemIds }, 
-        }).sort({ createdDateTime: -1 }); // Sort by createdDateTime in descending order
+        }).sort({ createdDateTime: -1, _id: -1 }); 
       
         if (!latestDebitNote) {
             console.log("No debit note found for this supplier.");
@@ -254,18 +255,15 @@ async function getLatestDebitNote(debitId, organizationId, supplierId, billId, i
       supplierId,
       billId, 
       "items.itemId": { $in: itemIds },
-  }).sort({ createdDateTime: -1 }); // Sort by createdDateTime in descending order
+  }).sort({ createdDateTime: -1, _id: -1 });
 
   if (!latestDebitNote) {
-      console.log("No debit note found for this supplier.");
-      return res.status(404).json({ message: "No debit note found for this supplier." });
+    return { error: "No debit note found for this supplier." };
   }
 
   // Check if the provided debitId matches the latest one
   if (latestDebitNote._id.toString() !== debitId) {
-    return res.status(400).json({
-      message: "Only the latest debit note can be edited."
-    });
+    return { error: "Only the latest debit note can be edited." };
   }
 
   return latestDebitNote;
