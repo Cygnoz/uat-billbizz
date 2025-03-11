@@ -157,7 +157,8 @@ exports.getOverviewData = async (req, res) => {
         const orgTimeZone = organizationExists.timeZoneExp || "UTC";
 
         // Extract Year and Month
-        const [year, month] = date.split(/[-/]/).map(Number); // Split date on "-" or "/"
+        let [year, month] = date.split(/[-/]/).map(Number); // Split date on "-" or "/"
+        month = String(month).padStart(2, '0'); // Ensure month is always two digits
 
         // Ensure valid year and month
         if (!year || !month || month < 1 || month > 12) {
@@ -273,7 +274,8 @@ exports.getSalesOverTime = async (req, res) => {
         const orgTimeZone = organizationExists.timeZoneExp || "UTC";
 
         // Extract Year and Month
-        const [year, month] = date.split(/[-/]/).map(Number); // Split date on "-" or "/"
+        let [year, month] = date.split(/[-/]/).map(Number); // Split date on "-" or "/"
+        month = String(month).padStart(2, '0'); // Ensure month is always two digits
 
         // Ensure valid year and month
         if (!year || !month || month < 1 || month > 12) {
@@ -351,7 +353,8 @@ exports.getExpenseByCategory = async (req, res) => {
         const orgTimeZone = organizationExists.timeZoneExp || "UTC";
 
         // Extract Year and Month
-        const [year, month] = date.split(/[-/]/).map(Number); // Split date on "-" or "/"
+        let [year, month] = date.split(/[-/]/).map(Number); // Split date on "-" or "/"
+        month = String(month).padStart(2, '0'); // Ensure month is always two digits
 
         // Ensure valid year and month
         if (!year || !month || month < 1 || month > 12) {
@@ -432,7 +435,8 @@ exports.getTopProductCustomer = async (req, res) => {
         const orgTimeZone = organizationExists.timeZoneExp || "UTC";
 
         // Extract Year and Month
-        const [year, month] = date.split(/[-/]/).map(Number); // Split date on "-" or "/"
+        let [year, month] = date.split(/[-/]/).map(Number); // Split date on "-" or "/"
+        month = String(month).padStart(2, '0'); // Ensure month is always two digits
 
         // Ensure valid year and month
         if (!year || !month || month < 1 || month > 12) {
