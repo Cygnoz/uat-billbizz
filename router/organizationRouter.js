@@ -117,10 +117,10 @@ router.put('/status-prefix',verifyToken,checkPermission('Edited Setting details'
 
 
 //Main Dashboard
-router.get('/get-dashboard-overview', verifyToken, dashboardController.getOverviewData)
-router.get('/get-dashboard-salesOverTime', verifyToken, dashboardController.getSalesOverTime)
-router.get('/get-dashboard-getExpenseByCategory', verifyToken, dashboardController.getExpenseByCategory)
-router.get('/get-dashboard-getTopProductCustomer', verifyToken, dashboardController.getTopProductCustomer)
+router.get('/get-mainDashboard-overview', verifyToken, dashboardController.getOverviewData)
+router.get('/get-mainDashboard-salesOverTime', verifyToken, dashboardController.getSalesOverTime)
+router.get('/get-mainDashboard-expenseByCategory', verifyToken, dashboardController.getExpenseByCategory)
+router.get('/get-mainDashboard-topProductCustomer', verifyToken, dashboardController.getTopProductCustomer)
 
 
 
