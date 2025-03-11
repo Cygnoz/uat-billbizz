@@ -295,8 +295,12 @@ async function getLatestDebitNote(debitId, organizationId, supplierId, billId, i
   }
 
   return latestDebitNote;
-}
 
+  } catch (error) {
+    console.error("Error get Latest DebitNote:", error);
+    throw new Error("Failed to get Latest DebitNote");
+  }
+}
 
 
 
