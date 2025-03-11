@@ -4,11 +4,20 @@ const router = new express.Router()
 const accountController = require("../controller/accountController")
 const journalController = require("../controller/journalController")
 
+const accountDashboard = require("../controller/accountsDashboard")
 
 const checkPermission = require('../controller/permission');
 const { verifyToken } = require('../controller/middleware');
 const { nexVerifyToken } = require('../controller/nexMiddleware');
 
+
+
+// Dashboard
+router.get('/get-accountDashboard-overview', verifyToken, accountDashboard.getOverviewData)
+router.get('/get-accountDashboard-totalRevenueOverTime', verifyToken, accountDashboard.getTotalRevenueOverTime)
+router.get('/get-accountDashboard-accountReceivableAging', verifyToken, accountDashboard.getAccountReceivableAging)
+router.get('/get-accountDashboard-accountPayableAging', verifyToken, accountDashboard.getAccountPayableAging)
+router.get('/get-accountDashboard-invoiceStatus', verifyToken, accountDashboard.getInvoiceStatus)
 
 
 
