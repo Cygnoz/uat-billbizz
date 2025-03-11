@@ -30,8 +30,14 @@ exports.updateCreditNote = async (req, res) => {
       const cleanedData = cleanData(req.body);
 
       const { items, customerId, invoiceId } = cleanedData;
+ 
+      const itemIds = items.map(item => item.itemId); 
 
-      const itemIds = items.map(item => item.itemId);
+      // // Fetch the latest credit note for the given customerId and organizationId
+      // const latestCreditNote = await getLatestCreditNote(creditId, organizationId, customerId, invoiceId, itemIds, res);
+      // if (latestCreditNote) {
+      //   return res.status(404).json({ message: "Only the latest credit note can be edited." }); 
+      // }
 
       // Fetch the latest credit note for the given customerId and organizationId
       const result  = await getLatestCreditNote(creditId, organizationId, customerId, invoiceId, itemIds, res);
@@ -116,7 +122,6 @@ exports.updateCreditNote = async (req, res) => {
       //Update Invoice Balance      
       await editUpdateSalesInvoiceBalance( savedCreditNote, invoiceId, existingCreditNote.totalAmount ); 
       
-  
       res.status(200).json({ message: "Credit note updated successfully", savedCreditNote });
       console.log("Credit Note updated successfully:", savedCreditNote);  
     } catch (error) {
