@@ -322,7 +322,7 @@ exports.getRecentTransactions = async (req, res) => {
                 salesQuoteDate: data.salesQuoteDate,
                 customerName: data.customerId?.customerDisplayName || "Unknown",
                 status: data.status,
-                totalAmount: (order.totalAmount - order.totalTax) || 0,
+                totalAmount: (data.totalAmount - data.totalTax) || 0,
             });
         });
 
@@ -335,7 +335,7 @@ exports.getRecentTransactions = async (req, res) => {
                 salesOrderDate: data.salesOrderDate,
                 customerName: data.customerId?.customerDisplayName || "Unknown",
                 status: data.status,
-                totalAmount: (order.totalAmount - order.totalTax) || 0,
+                totalAmount: (data.totalAmount - data.totalTax) || 0,
             });
         });
 
@@ -360,7 +360,7 @@ exports.getRecentTransactions = async (req, res) => {
                 creditNote: data.creditNote,
                 customerCreditDate: data.customerCreditDate,
                 customerName: data.customerId?.customerDisplayName || "Unknown",
-                totalAmount: (order.totalAmount - order.totalTax) || 0,
+                totalAmount: (data.totalAmount - data.totalTax) || 0,
             });
         });
         
