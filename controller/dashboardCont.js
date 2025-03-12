@@ -471,25 +471,25 @@ exports.getTopSupplierBySpend = async (req, res) => {
 exports.getTopOrdersBySupplier = async (req, res) => {
     try {
         const organizationId = req.user.organizationId;
-        const { date } = req.query; // Get date in YYYY/MM or YYYY-MM format
+        const { date } = req.query; // Expected format: YYYY/MM or YYYY-MM
 
         // Validate date format (YYYY/MM or YYYY-MM)
         if (!date || !/^\d{4}[-/]\d{2}$/.test(date)) {
             return res.status(400).json({ message: "Invalid date format. Use YYYY/MM or YYYY-MM." });
         }
 
-        // Fetch Organization Data
-        const { organizationExists, allPurchaseOrder, allSupplier } = await dataExist(organizationId);
+        // Fetch organization data
+        const { organizationExists, allBills } = await dataExist(organizationId);
         if (!organizationExists) return res.status(404).json({ message: "Organization not found!" });
 
         // Get organization's time zone
         const orgTimeZone = organizationExists.timeZoneExp || "UTC";
 
-        // Extract Year and Month
-        let [year, month] = date.split(/[-/]/).map(Number); // Split date on "-" or "/"
+        // Extract year and month
+        let [year, month] = date.split(/[-/]/).map(Number);
         month = String(month).padStart(2, '0'); // Ensure month is always two digits
 
-        // Ensure valid year and month
+        // Validate year and month
         if (!year || !month || month < 1 || month > 12) {
             return res.status(400).json({ message: "Invalid year or month in date." });
         }
@@ -500,46 +500,133 @@ exports.getTopOrdersBySupplier = async (req, res) => {
 
         console.log("Requested Date Range:", startDate.format(), endDate.format());
 
-        // Filter purchase order within the date range (using organization time zone)
-        const filteredPurchaseOrder = allPurchaseOrder.filter(order => {
-            const orderDate = moment.tz(order.createdDateTime, orgTimeZone);
-            return orderDate.isBetween(startDate, endDate, null, "[]");
+        // Filter bills within the date range
+        const filteredBills = allBills.filter(bill => {
+            const billDate = moment.tz(bill.createdDateTime, orgTimeZone);
+            return billDate.isBetween(startDate, endDate, null, "[]");
         });
 
-        console.log("Filtered purchase order:", filteredPurchaseOrder);
+        console.log("Filtered Bills:", filteredBills.length);
 
-        // Count the number of orders for each supplier
-        const supplierOrderCount = {};
+        // Group orders by day and supplier
+        const dailyOrders = {};
 
-        filteredPurchaseOrder.forEach(order => {
+        filteredBills.forEach(order => {
+            const orderDate = moment.tz(order.createdDateTime, orgTimeZone).format("YYYY-MM-DD");
             const supplierId = order.supplierId?._id?.toString();
-            if (!supplierId) return; // Skip if no supplierId
+            const supplierName = order.supplierId?.supplierDisplayName;
 
-            if (!supplierOrderCount[supplierId]) {
-                supplierOrderCount[supplierId] = { count: 0, supplierName: order.supplierId?.supplierDisplayName };
+            if (!supplierId || !supplierName) return; // Skip if supplier info is missing
+
+            if (!dailyOrders[orderDate]) {
+                dailyOrders[orderDate] = {};
             }
-            supplierOrderCount[supplierId].count += 1; // Increment count for each order
+
+            if (!dailyOrders[orderDate][supplierId]) {
+                dailyOrders[orderDate][supplierId] = { supplierName, totalOrders: 0 };
+            }
+
+            dailyOrders[orderDate][supplierId].totalOrders += 1; // Increment count
         });
 
-        // Convert to array and sort by order count (descending order)
-        const topSuppliers = Object.entries(supplierOrderCount)
-            .map(([supplierId, data]) => ({
-                supplierId,
-                supplierName: data.supplierName,
-                totalOrders: data.count // Count of orders per supplier
-            }))
-            .sort((a, b) => b.totalOrders - a.totalOrders) // Sort highest order count first
-            .slice(0, 4); // Get top 4 suppliers
+        // Convert daily data to array format, sorting suppliers by total orders
+        const topOrdersByDay = Object.entries(dailyOrders).map(([date, suppliers]) => {
+            const sortedSuppliers = Object.entries(suppliers)
+                .map(([supplierId, data]) => ({
+                    supplierId,
+                    supplierName: data.supplierName,
+                    totalOrders: data.totalOrders
+                }))
+                .sort((a, b) => b.totalOrders - a.totalOrders) // Sort highest first
+                .slice(0, 4); // Take top 4 suppliers for the day
 
-        console.log("Top 4 Suppliers by Purchase Orders:", topSuppliers);
+            return { date, topSuppliers: sortedSuppliers };
+        });
+
+        console.log("Top Orders by Day:", topOrdersByDay);
 
         // Response JSON
-        res.json({ topSuppliers });
+        res.json({ topOrdersByDay });
 
     } catch (error) {
-        console.error("Error fetching top orders by supplier:", error);
+        console.error("Error fetching top orders by supplier per day:", error);
         res.status(500).json({ message: "Internal server error." });
     }
 };
+
+
+// exports.getTopOrdersBySupplier = async (req, res) => {
+//     try {
+//         const organizationId = req.user.organizationId;
+//         const { date } = req.query; // Get date in YYYY/MM or YYYY-MM format
+
+//         // Validate date format (YYYY/MM or YYYY-MM)
+//         if (!date || !/^\d{4}[-/]\d{2}$/.test(date)) {
+//             return res.status(400).json({ message: "Invalid date format. Use YYYY/MM or YYYY-MM." });
+//         }
+
+//         // Fetch Organization Data
+//         const { organizationExists, allPurchaseOrder, allSupplier } = await dataExist(organizationId);
+//         if (!organizationExists) return res.status(404).json({ message: "Organization not found!" });
+
+//         // Get organization's time zone
+//         const orgTimeZone = organizationExists.timeZoneExp || "UTC";
+
+//         // Extract Year and Month
+//         let [year, month] = date.split(/[-/]/).map(Number); // Split date on "-" or "/"
+//         month = String(month).padStart(2, '0'); // Ensure month is always two digits
+
+//         // Ensure valid year and month
+//         if (!year || !month || month < 1 || month > 12) {
+//             return res.status(400).json({ message: "Invalid year or month in date." });
+//         }
+
+//         // Set start and end date for the month
+//         const startDate = moment.tz(`${year}-${month}-01`, orgTimeZone).startOf("month");
+//         const endDate = moment(startDate).endOf("month");
+
+//         console.log("Requested Date Range:", startDate.format(), endDate.format());
+
+//         // Filter purchase order within the date range (using organization time zone)
+//         const filteredPurchaseOrder = allPurchaseOrder.filter(order => {
+//             const orderDate = moment.tz(order.createdDateTime, orgTimeZone);
+//             return orderDate.isBetween(startDate, endDate, null, "[]");
+//         });
+
+//         console.log("Filtered purchase order:", filteredPurchaseOrder);
+
+//         // Count the number of orders for each supplier
+//         const supplierOrderCount = {};
+
+//         filteredPurchaseOrder.forEach(order => {
+//             const supplierId = order.supplierId?._id?.toString();
+//             if (!supplierId) return; // Skip if no supplierId
+
+//             if (!supplierOrderCount[supplierId]) {
+//                 supplierOrderCount[supplierId] = { count: 0, supplierName: order.supplierId?.supplierDisplayName };
+//             }
+//             supplierOrderCount[supplierId].count += 1; // Increment count for each order
+//         });
+
+//         // Convert to array and sort by order count (descending order)
+//         const topSuppliers = Object.entries(supplierOrderCount)
+//             .map(([supplierId, data]) => ({
+//                 supplierId,
+//                 supplierName: data.supplierName,
+//                 totalOrders: data.count // Count of orders per supplier
+//             }))
+//             .sort((a, b) => b.totalOrders - a.totalOrders) // Sort highest order count first
+//             .slice(0, 4); // Get top 4 suppliers
+
+//         console.log("Top 4 Suppliers by Purchase Orders:", topSuppliers);
+
+//         // Response JSON
+//         res.json({ topSuppliers });
+
+//     } catch (error) {
+//         console.error("Error fetching top orders by supplier:", error);
+//         res.status(500).json({ message: "Internal server error." });
+//     }
+// };
 
 
