@@ -2,7 +2,6 @@ const SalesInvoice = require("../database/model/salesInvoice");
 const Organization = require("../database/model/organization");
 const PurchaseBill = require("../database/model/bills");
 const TrialBalance = require("../database/model/trialBalance");
-const Expense = require('../database/model/expense');
 const Account = require('../database/model/account');
 const Item = require("../database/model/item");
 const Supplier = require("../database/model/supplier");
@@ -16,7 +15,7 @@ const { singleCustomDateTime, multiCustomDateTime } = require("../services/timeC
 
 
 const dataExist = async ( organizationId ) => {    
-    const [organizationExists, allInvoice, allBills, allExpense, allTrialBalance ] = await Promise.all([
+    const [organizationExists, allInvoice, allBills ] = await Promise.all([
       Organization.findOne({ organizationId },{ timeZoneExp: 1, dateFormatExp: 1, dateSplit: 1, organizationCountry: 1 })
       .lean(),
       SalesInvoice.find({ organizationId }, {_id: 1, customerId: 1, items: 1, salesInvoiceDate: 1, dueDate: 1, paidStatus: 1, paidAmount: 1, saleAmount: 1, createdDateTime: 1 })
@@ -26,15 +25,9 @@ const dataExist = async ( organizationId ) => {
       PurchaseBill.find({ organizationId }, {_id: 1, supplierId: 1, items: 1, purchaseOrderDate: 1, dueDate: 1, paidStatus: 1, paidAmount: 1, purchaseAmount: 1, createdDateTime: 1 })
       .populate('items.itemId', 'itemName') 
       .populate('supplierId', 'supplierDisplayName') 
-      .lean(),
-      Expense.find({ organizationId }, {_id: 1, expense: 1, expenseCategory: 1, grandTotal: 1, createdDateTime: 1 })
-      .populate('expense.expenseAccountId', 'accountName') 
-      .lean(),
-      TrialBalance.find({ organizationId: organizationId, createdDateTime: 1 })
-      .populate('accountId', 'accountName')    
-      .lean(),
+      .lean()
     ]);
-    return { organizationExists, allInvoice, allBills, allExpense, allTrialBalance };
+    return { organizationExists, allInvoice, allBills };
 };
 
 
